@@ -1,0 +1,31 @@
+﻿Category,Subcategory,Tag-set of Format-1,Tag-set of Format-2
+NAMEX,Person,P,PERSON
+,Location,L,LOCATION
+,Organization,〇,ORGANIZATION
+TIMEX,Date,dat,DATE
+,Duration,dur,DURATION
+,Time,tim,TIME
+NUMEX,Percent,per,PERCENT
+,Money,mon,MONEY
+,Frequency,fre,FREQUENCY
+,Integer,int,INTEGER
+,Fraction,fra,FRACTION
+,Decimal,dec,DECIMAL
+,Ordinal,ord,ORDINAL
+,Rate,rat,RATE
+MEASUREX,Age,age,AGE
+,Weight,wei,WEIGHT
+,Length,len,LENGTH
+,Temperature,tem,TEMPERATURE
+,Angle,ang,ANGLE
+,Area,are,AREA
+,Capacity,cap,CAPACITY
+,Speed,spe,SPEED
+,Acceleration,acc,ACCELERATION
+,Other measures,mea,MEASURE
+ADDREX,Email,ema,EMAIL
+,Phone,pho,PHONE
+,Fax,fax,FAX
+,Telex,tel,TELEX
+,WWW,WWW,WWW
+,Postalcode,pos,POSTALCODE

@@ -1,0 +1,37 @@
+﻿Tag,Description,Chinese,Chinese Description,Examples
+AD,adverb,副詞,副詞,仍然、很、大大、約
+AS,aspect marker,動態助詞,助詞,了、著、過
+BA,bǎin ba-construction,把字句,當“把”、“將”出現在結構“NP0 + BA + NP1+VP”時的詞性,把、將
+CC,coordinating conjunction,並列連接詞,並列連詞,與、和、或者、還是
+CD,cardinal number,概數詞,數詞或表達數量的詞,一百、好些、若干
+CS,subordinating conjunction,從屬連詞,從屬連詞,如果、那麼、就
+DEC,deas a complementizer or a nominalizer,補語成分“的”,當“的”或“之”作補語標記或名詞化標記時的詞性，其結構為：S/VP DEC {NP}，如，喜歡旅遊的大學生,的、之
+DEG,deas a genitive marker and an associative marker,屬格“的”,當“的”或“之”作所有格時的詞性，其結構為:NP/PP/JJ/DT DEG {NP}， 如，他的車、經濟的發展,的、之
+DER,"resultative de, dein V-de const and V-de-R",表結果的“得”,當“得”出現在結構“V-得-R”時的詞性，如，他跑得很快,得
+DEV,"manner de, debefore VP",表方式的“地”,當“地”出現在結構“X-地-VP”時的詞性，如，高興地說,地
+DT,determiner,限定詞,代冠詞，通常用來修飾名詞,這、那、該、每、各
+ETC,for words like “etc.”,表示省略,“等”、“等等”的詞性,等、等等
+EM,emoji,表情符,表情符、或稱顏文字,：）
+FW,foreign words,外來語,外來詞,卡拉、A型
+IJ,interjection,句首感嘆詞,感嘆詞，通常出現在句子首部,啊
+JJ,other noun-modifier,其他名詞修飾語,形容詞,共同、新
+LB,bèiin long bei-const,長句式表被動,當“被”、“叫”、“給”出現在結構“NP0 + LB + NP1+ VP”結構時的詞性，如，他被我訓了一頓,被、叫、給
+LC,localizer,方位詞,方位詞以及表示範圍的限定詞,前、旁、到、在內、以來、為止
+M,measure word,量詞,量詞,個、群、公里
+MSP,other particle,其他小品詞,其他虛詞，包括“所”、“以”、“來”和“而”等出現在VP前的詞,所、以、來、而
+NN,common noun,其他名詞,除專有名詞和時間名詞外的所有名詞,桌子、生活、經濟
+NOI,noise that characters are written in the wrong order,噪聲,漢字順序顛倒產生的噪聲,事/NOI 類/NOI 各/NOI 故/NOI
+NR,proper noun,專有名詞,專有名詞，通常表示地名、人名、機構名等,北京、喬丹、微軟
+NT,temporal noun,時間名詞,表示時間概念的名詞,一月、漢朝、當今
+OD,ordinal number,序數詞,序列詞,第一百
+ON,onomatopoeia,象聲詞,象聲詞,嘩嘩、呼、咯吱
+P,"preposition eg, “from” and “to”",介詞,介詞,從、對、根據
+PN,pronoun,代詞,代詞，通常用來指代名詞,我、這些、其、自己
+PU,punctuation,標點符號,標點符號,?、。、；
+SB,bèiin short bei-const,短句式表被動,當“被”、“給”出現在NP0 +SB+ VP結果時的詞性，如，他被訓了一頓,被、叫
+SP,sentence final particle,句末助詞,經常出現在句尾的詞,吧、呢、啊、啊
+URL,web address,網址,網址,www.hankcs.com
+VA,predicative adjective,表語形容詞,可以接在“很”後面的形容詞謂語,雪白、厲害
+VC,"copula, be words",系動詞,系動詞，表示“是”或“非”概念的動詞,是、為、非
+VE,yǒuas the main verb,動詞有無,表示“有”或“無”概念的動詞,有、沒有、無
+VV,other verb,其他動詞,其他普通動詞，包括情態詞、控制動詞、動作動詞、心理動詞等等,可能、要、走、喜歡

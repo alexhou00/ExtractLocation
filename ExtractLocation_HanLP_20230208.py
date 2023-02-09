@@ -42,13 +42,15 @@ class Word(NamedTuple):
 for name, logger in logging.root.manager.loggerDict.items():
     logger.disabled=True
 logging.basicConfig(level=logging.INFO)
-    
+
+books = ['史記v123', '漢書v96', '後漢書v88']
 # Read Original text (text preprocessing, xml -> str)
 texts = []
-with open('文本/史記v123.xml', 'r', encoding='utf-8') as f:
+with open(f'文本/{books[0]}.xml', 'r', encoding='utf-8') as f:
     for line in f:
         # remove ascii chars, which means to delete <tags>
         texts.append(''.join([i if ord(i) > 128 else '' for i in line]))
+
 text = ''.join(texts)
 
 # Fill in auth (auth=None -> anonymous), set language='zh' to use Chinese models
@@ -56,11 +58,8 @@ HanLP = HanLPClient('https://www.hanlp.com/api', auth=os.environ['API_KEY'], lan
 
 # Use tasks=[...] to run selected tasks only
 # type(t) = Document()  # (Document object of hanlp_common.document)
-try:
-    t = HanLP(text, tasks=['pos', 'ner', 'sdp'])
-except HTTPError:
-    logging.critical("Exceeded rate limiting of 2 per minute for anonymous user. 尊敬的匿名用户，你的调用次数超过了每分钟2次。 Please consider applying for a free auth at https://bbs.hankcs.com/t/topic/3178  由于服务器算力有限，匿名用户每分钟限2次调用。如果你需要更多调用次数，建议申请免费公益API秘钥auth https://bbs.hanlp.com/t/hanlp2-1-restful-api/53 ")
-    quit()
+t = HanLP(text, tasks=['pos', 'ner', 'sdp'])
+
 
 
 json_t = json.loads(str(t))
@@ -70,7 +69,7 @@ filecsv = open('test_hanlp_findloc.csv', 'a', encoding='utf-8', newline='')
 filetxt = open('test_hanlp_findloc.txt', 'a', encoding='utf-8')
 writer = csv.writer(filecsv)
 
-loc_grammar = "DIS: {<LOC>+<VV><P>?<LOC>+(<LC|NN>|<CD>+<M>)}"
+loc_grammar = "DIS: {<LOC>+<VV><P>?<LOC>+(<LC>|<CD>+<M>)}"
 pron_loc_grammar = "PDIS: {<PN><NN|LC>+<VV><P>?<CD>*<M>?<VE><LOC>+}"
 loc_parser = RegexpParser(loc_grammar)
 pron_loc_parser = RegexpParser(pron_loc_grammar)
@@ -88,9 +87,11 @@ for sentence in sentences_t:
     words = list(zip(*sentence))
     logging.debug(words)
     for n, thing in enumerate(words):
-        char, pos = thing
-        if pos == 'NR' and ner.get(char) == "LOCATION":
-            words[n] = (char, 'LOC')
+        w, pos = thing
+        if pos == 'NR' and ner.get(w) == "LOCATION":
+            words[n] = (w, 'LOC')
+        if pos == 'NN' and any([direction in w for direction in '東西南北']):
+            words[n] = (w, 'LC')
 
     lst.append(loc_parser.parse(words))
     lst.append(pron_loc_parser.parse(words))
@@ -116,11 +117,7 @@ with open('results.csv', 'w', encoding='utf-8', newline='') as f:
         data[3] = ''.join([name for name, pos in line if pos == 'LC' or pos == 'NN'])
         data[4] = ''.join([name for name, pos in line if pos == 'CD' or pos == 'M'])
         writer.writerow(data)
-'''
->>> pos_tag(word_tokenize("John's big idea isn't all that bad.")) 
-[('John', 'NNP'), ("'s", 'POS'), ('big', 'JJ'), ('idea', 'NN'), ('is', 'VBZ'),
-("n't", 'RB'), ('all', 'PDT'), ('that', 'DT'), ('bad', 'JJ'), ('.', '.')]
-'''
+
 
 filecsv.close()
 filetxt.close()

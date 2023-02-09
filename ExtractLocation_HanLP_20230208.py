@@ -102,7 +102,20 @@ for sentence in lst:
     for subtree in sentence:
         if isinstance(subtree, Tree) and (subtree.label() == 'DIS' or subtree.label() == 'PDIS'):  
             chunks.append(tuple(subtree))
+            print(subtree)
 
+with open('results.csv', 'w', encoding='utf-8', newline='') as f:
+    writer = csv.writer(f)
+    writer.writerow(['國名','治所','相對地點','方位','里程'])
+    for line in chunks:
+        data = ['' for i in range(5)]
+        locs = [name for name, pos in line if pos == 'LOC' or pos == 'PN']
+        data[0] = locs[0]
+        data[1] = ''
+        data[2] = locs[1]
+        data[3] = ''.join([name for name, pos in line if pos == 'LC' or pos == 'NN'])
+        data[4] = ''.join([name for name, pos in line if pos == 'CD' or pos == 'M'])
+        writer.writerow(data)
 '''
 >>> pos_tag(word_tokenize("John's big idea isn't all that bad.")) 
 [('John', 'NNP'), ("'s", 'POS'), ('big', 'JJ'), ('idea', 'NN'), ('is', 'VBZ'),

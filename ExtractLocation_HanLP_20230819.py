@@ -23,7 +23,7 @@ from typing import NamedTuple  # c-like struct works like a tuple
 from nltk import RegexpParser, Tree
 from itertools import groupby
 
-from urllib.error import HTTPError
+# from urllib.error import HTTPError
 
 from chinese_numerals import chineseNumeralsToInteger, map_nums
 
@@ -83,12 +83,15 @@ sentences_t = list(zip(*list(json_t.values())))
 # for every sentence (sentence == [[tok list],[pos list],[ner list],[sdp list]])
 lst = []
 chunks = []
+chunks_rev = []
 for sentence in sentences_t:
     # unzip to [word_tuple, word_tuple, ...]; word_tuple = (tok, pos, ner, sdp)
     sentence = list(sentence)
+    
     sdp = sentence.pop(3)
     ner = sentence.pop(2)
     ner = dict([(a, b) for a, b, c, d in ner])
+    
     words = list(zip(*sentence))
     logging.debug(words)
     inserts = 0
@@ -106,6 +109,10 @@ for sentence in sentences_t:
             words[n] = (w, 'LC')
         if w == "國":
             words[n] = (w, 'CNTRY')
+        '''if w == '其' and pos == "PN":
+            print(''.join(sentence[0]))
+            print(HanLP.coreference_resolution(''.join(sentence[0])))'''
+        # 京西
         if pos in ('LOC', "NR") and any([w.endswith(direction) for direction in '東西南北']):
             words[n] = (w[:-1], 'LOC')
             words.insert(n+1, (w[-1], 'LC'))
@@ -123,13 +130,18 @@ for sentence in lst:
             if any(['使' in i[0] for i in tuple(subtree)]):
                 continue
             else:
+                #if subtree.label() == 'DIS':
                 chunks.append(tuple(subtree))
+                #elif subtree.label() == 'PDIS':
+                chunks_rev.append(subtree.label())
                 print(subtree)
+                print(''.join(list(zip(*subtree))[0]))
+                print('')
 
 with open('results.csv', 'w', encoding='utf-8', newline='') as f:
     writer = csv.writer(f)
     writer.writerow(['國名','治所','相對地點','方位','里程'])
-    for line in chunks:
+    for line, lbl in zip(chunks, chunks_rev):
         data = ['' for i in range(5)]
         
         # split "line" in python with VV and CD as the delimiter to know the Subject + Object + UNIT
@@ -144,8 +156,12 @@ with open('results.csv', 'w', encoding='utf-8', newline='') as f:
             
         locs_s = [name for name, pos in line_group[0] if pos not in ('AD', 'LC', 'VE')]# in ('LOC','NR', 'PN')] # subject
         locs_o = [name for name, pos in line_group[1] if pos not in ("LC", "VV", "VE", "M", "AD")] #in ('LOC','NR', 'PN')] # object
-        if len(locs_s): data[0] = ''.join(locs_s)
-        data[2] = ''.join(locs_o)
+        if lbl == "PDIS":
+            if len(locs_s): data[2] = ''.join(locs_s)
+            data[0] = ''.join(locs_o)
+        else:
+            if len(locs_s): data[0] = ''.join(locs_s)
+            data[2] = ''.join(locs_o)
         
         # capital
         data[1] = ''

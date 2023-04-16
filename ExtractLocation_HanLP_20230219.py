@@ -23,7 +23,7 @@ from typing import NamedTuple  # c-like struct works like a tuple
 from nltk import RegexpParser, Tree
 from itertools import groupby
 
-# from urllib.error import HTTPError
+from urllib.error import HTTPError
 
 from chinese_numerals import chineseNumeralsToInteger, map_nums
 
@@ -35,14 +35,12 @@ import csv
 import os
 
 
-# Currently not used
 class Word(NamedTuple):
     tok: str  # Tokenization
     pos: str  # Part of Speech
     sdp: list  # Semantic Dependency Parsing, 語義依存分析
     ner: list = ['',0,0] # Named Entity Recognition, 命名實體識別
-
-# Config the logging module
+ 
 for name, logger in logging.root.manager.loggerDict.items():
     logger.disabled=True
 logging.basicConfig(level=logging.INFO)
@@ -64,56 +62,33 @@ HanLP = HanLPClient('https://www.hanlp.com/api', auth=os.environ['API_KEY'], lan
 
 # Use tasks=[...] to run selected tasks only
 # type(t) = Document()  # (Document object of hanlp_common.document)
-# text = '大宛在匈奴西南，在漢正西，去漢可萬里。其俗土著，耕田，田稻麥。有蒲陶酒。'
 t = HanLP(text, tasks=['pos', 'ner', 'sdp'])
 
-# Predefine Known 地名 so we can tag them as LOC directly
-# (^To do)
 LOCATIONS = ['烏孫']
 
-# HanLP results to JSON (readable structure)
-json_t = json.loads(str(t)) # type:
+json_t = json.loads(str(t))
 logging.debug(str(t))
 
 filecsv = open('test_hanlp_findloc.csv', 'a', encoding='utf-8', newline='')
 filetxt = open('test_hanlp_findloc.txt', 'a', encoding='utf-8')
 writer = csv.writer(filecsv)
 
-#   P: Preposition
-# LOC: NR && Location (Target Location Names)
-#  NR: Proper Nouns
-# CNTRY: 「國」
-#  AD: ADVerb
-#  VV: Normal Verbs
-#  LC: Directions of locations (North, east, etc)
-#   M: 量詞
-#  CD: 數詞
-# 
 loc_grammar = "DIS: {<P>?<LOC|NR>+<CNTRY>?<AD>?<VV|P><P>?<LOC|NR>+<AD>?<VV>?(<LC><VV>?<CD>+<M>|<LC>|<CD>+<M>)}"
 pron_loc_grammar = "PDIS: {<PN><NN|LC>+<VV><P>?<CD>*<M>?<VE><LOC>+}"
 wosub_grammar = "DWOS: {<VV|P><P>?<LOC|NR>+<VV>?(<LC>|<CD>+<M>|<LC><VV>?<CD>+<M>)}" # distance without subject
-
-atWhere = '<VV|P><P>?<LOC|NR>+<AD>?<VV>?(<LC><VV>?<CD>+<M>|<LC>|<CD>+<M>)'
-full_grammar = "DISF: {<P>?<LOC|NR>+<CNTRY>?<AD>?"+atWhere+"((<PU>"+atWhere+")*)}"
-
 loc_parser = RegexpParser(loc_grammar)
 pron_loc_parser = RegexpParser(pron_loc_grammar)
-full_grammar_parser = RegexpParser(full_grammar)
 
 sentences_t = list(zip(*list(json_t.values())))
 # for every sentence (sentence == [[tok list],[pos list],[ner list],[sdp list]])
 lst = []
-lst2 = []
 chunks = []
-chunks_rev = []
 for sentence in sentences_t:
     # unzip to [word_tuple, word_tuple, ...]; word_tuple = (tok, pos, ner, sdp)
     sentence = list(sentence)
-    
     sdp = sentence.pop(3)
     ner = sentence.pop(2)
     ner = dict([(a, b) for a, b, c, d in ner])
-    
     words = list(zip(*sentence))
     logging.debug(words)
     inserts = 0
@@ -129,12 +104,8 @@ for sentence in sentences_t:
         # elif pos == 'NR': print(w, 'PERSON')
         if pos == 'NN' and any([direction in w for direction in '東西南北']):
             words[n] = (w, 'LC')
-        if w == "國":  # tag the character 國 as CNTRY
+        if w == "國":
             words[n] = (w, 'CNTRY')
-        '''if w == '其' and pos == "PN":
-            print(''.join(sentence[0]))
-            print(HanLP.coreference_resolution(''.join(sentence[0])))'''
-        # 京西
         if pos in ('LOC', "NR") and any([w.endswith(direction) for direction in '東西南北']):
             words[n] = (w[:-1], 'LOC')
             words.insert(n+1, (w[-1], 'LC'))
@@ -142,66 +113,49 @@ for sentence in sentences_t:
 
     lst.append(loc_parser.parse(words))
     lst.append(pron_loc_parser.parse(words))
-    lst2.append(full_grammar_parser.parse(words))
 
     
 
 # extract DIS chunks
-for sentence in lst2:
+for sentence in lst:
     for subtree in sentence:
-        if isinstance(subtree, Tree) and (subtree.label() == 'DISF' or subtree.label() == 'PDIS'):  
-            if any(['使' in i[0] for i in tuple(subtree)]):  # why????
+        if isinstance(subtree, Tree) and (subtree.label() == 'DIS' or subtree.label() == 'PDIS'):  
+            if any(['使' in i[0] for i in tuple(subtree)]):
                 continue
             else:
-                #if subtree.label() == 'DIS':
                 chunks.append(tuple(subtree))
-                #elif subtree.label() == 'PDIS':
-                chunks_rev.append(subtree.label())
                 print(subtree)
-                print(''.join(list(zip(*subtree))[0]))
-                print('')
 
-# Write to table (csv file)
 with open('results.csv', 'w', encoding='utf-8', newline='') as f:
     writer = csv.writer(f)
     writer.writerow(['國名','治所','相對地點','方位','里程'])
-    for lines, lbl in zip(chunks, chunks_rev):
-        # print(line, lbl)
-        w = ("，", "PU")
-        spl = [list(y) for x, y in groupby(lines, lambda z: z == w) if not x]
-        for line in spl:
-            data = ['' for i in range(5)]
-            
-            # split "line" in python with VV and CD as the delimiter to know the Subject + Object + UNIT
-            # if [vv not in line] use p to split
-            if not any([i[1] == 'VV' for i in line[:4]]): 
-                if any([i[1] == 'P' for i in line]):
-                    line_group = [list(group) for k, group in groupby(line, lambda x: x[1] in ("P", "CD")) if not k]  # split list by i[1] == ("P", "CD")
-                else:
-                    line_group = [list(group) for k, group in groupby(line, lambda x: x[1] in ("LOC", "NR"))]  # split list by i[1] == ("LOC", "NR")
+    for line in chunks:
+        data = ['' for i in range(5)]
+        
+        # split "line" in python with VV and CD as the delimiter to know the Subject + Object + UNIT
+        # if [vv not in line] use p to split
+        if not any([i[1] == 'VV' for i in line[:4]]): 
+            if any([i[1] == 'P' for i in line]):
+                line_group = [list(group) for k, group in groupby(line, lambda x: x[1] in ("P", "CD")) if not k]
             else:
-                line_group = [list(group) for k, group in groupby(line, lambda x: x[1] in ("VV", "CD")) if not k]
-            line_group= line_group[::-1]
-            if len(line_group) > 1:
-                locs_s = [name for name, pos in line_group[1] if pos not in ('AD', 'LC', 'VE')]# in ('LOC','NR', 'PN')] # subject
-            else:
-                locs_s = []
-            locs_o = [name for name, pos in line_group[0] if pos not in ("LC", "VV", "VE", "M", "AD")] #in ('LOC','NR', 'PN')] # object
-            if lbl == "PDIS":
-                if len(locs_s): data[2] = ''.join(locs_s)
-                data[0] = ''.join(locs_o)
-            else:
-                if len(locs_s): data[0] = ''.join(locs_s)
-                data[2] = ''.join(locs_o)
+                line_group = [list(group) for k, group in groupby(line, lambda x: x[1] in ("LOC", "NR"))]
+        else:
+            line_group = [list(group) for k, group in groupby(line, lambda x: x[1] in ("VV", "CD")) if not k]
             
-            # capital
-            data[1] = ''
-            
-            data[3] = ''.join([name for name, pos in line if pos == 'LC' or pos == 'NN'])
-            data[4] = ''.join([name for name, pos in line if pos == 'CD' or pos == 'M'])
-            if data[4] != '' and '數' not in data[4]:
-                data[4] = str(chineseNumeralsToInteger(data[4])) + ''.join([ch for ch in data[4] if ch not in map_nums])
-            writer.writerow(data)
+        locs_s = [name for name, pos in line_group[0] if pos not in ('AD', 'LC', 'VE')]# in ('LOC','NR', 'PN')] # subject
+        locs_o = [name for name, pos in line_group[1] if pos not in ("LC", "VV", "VE", "M", "AD")] #in ('LOC','NR', 'PN')] # object
+        if len(locs_s): data[0] = ''.join(locs_s)
+        data[2] = ''.join(locs_o)
+        
+        # capital
+        data[1] = ''
+        
+        data[3] = ''.join([name for name, pos in line if pos == 'LC' or pos == 'NN'])
+        data[4] = ''.join([name for name, pos in line if pos == 'CD' or pos == 'M'])
+        if data[4] != '' and '數' not in data[4]:
+            data[4] = str(chineseNumeralsToInteger(data[4])) + ''.join([ch for ch in data[4] if ch not in map_nums])
+        writer.writerow(data)
+
 
 filecsv.close()
 filetxt.close()

@@ -16,6 +16,26 @@ import openai
 
 import csv
 
+UNKNOWN_KEYWORDS = ["--", "-", "不詳", "", "無", "未提及", "不明", "未提及", "未嘗見"]
+
+def is_empty(string):
+    string = string.strip()
+    if string in UNKNOWN_KEYWORDS or string.startswith('無具體'):
+        return True
+    else:
+        return False
+
+def replace_unknown(lst):
+    for i in range(len(lst)):
+        if lst[i] in UNKNOWN_KEYWORDS:
+            lst[i] = "--"
+        if lst[i].startswith('無具體'):
+            lst[i] = "--"
+    lst[i] = lst[i].strip("| ")
+    #if len(lst) > 5: lst = lst[:5]
+    return lst
+    
+
 def chatgpt_to_csv(table, num):
     # Split the table into rows
     rows = table.strip().split('\n')
@@ -29,21 +49,28 @@ def chatgpt_to_csv(table, num):
     # Write the data to a CSV file
     with open('gpt_output.csv', 'a', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
-        if num == 0: writer.writerow(headers)
-        writer.writerows(data)
+        if num == 0: writer.writerow(headers) # if writing the first time then write header
+        for row in data:
+            # - 目前做法：若方位、里位皆空（即不詳或”--”），則於寫入檔案前刪除該列
+            # - 若國名或相對地點亦有任一為空，亦刪除該列
+            if not (((is_empty(row[2])) and (is_empty(row[3]))) or (is_empty(row[0])) or (is_empty(row[1]))): # check if third and fourth columns are not empty
+                writer.writerow(replace_unknown(row))
 
 # Config the logging module
 for name, logger in logging.root.manager.loggerDict.items():
     logger.disabled=True
 logging.basicConfig(level=logging.INFO)
 
+# set openai api key
+# enter this line of code before running this script:
+# import os;os.environ['openai_api']='yOuR-ApI_KeyHeRE142857'
 openai.api_key = os.environ['openai_api']
 
 # List all books to use
 books = ['史記v123', '漢書v96', '後漢書v88']
 # Read Original text (text preprocessing, xml -> str)
 texts = []
-with open(f'文本/{books[0]}.xml', 'r', encoding='utf-8') as f:
+with open(f'文本/{books[1]}.xml', 'r', encoding='utf-8') as f:
     for line in f:
         # remove ascii chars, which means to delete <tags>
         texts.append(''.join([i if ord(i) > 128 else '' for i in line]))
@@ -61,17 +88,21 @@ prompt = '''
 with open('gpt_output.csv', mode='w') as file:
     file.truncate(0)
 
-for num, paragraph in enumerate([text.split('\n')[9]]):#enumerate([''.join(text.split('\n')[2:3])]):
+for num, paragraph in enumerate(text.split('\n')[:2]): # enumerate([''.join(text.split('\n')[0:2])]): #enumerate([text.split('\n')[3]]):#
     # paragraph = text.split('\n')[0]
     msgs = [{"role": "user", "content": prompt + paragraph}]
     response = openai.ChatCompletion.create(model="gpt-3.5-turbo",
                                             max_tokens=2048,
                                             temperature=0.1,
                                             messages=msgs)
-    print(table := response.choices[0].message.content)
-    print(f"Usage: {response.usage['total_tokens']} tokens")
+    print(table := response.choices[0].message.content)  # assign the table to variable and print it
+    print(f"Usage: {response.usage['total_tokens']} tokens")  # print token usage
 
-    chatgpt_to_csv(table, num)
+    try:
+        chatgpt_to_csv(table, num)  # write the output to csv table, num is the # of loop
+    except IndexError as e:  # perhaps that paragraph does not contain any location info
+        print(e)  # so the output (completion) won't be in the chatgpt-style table format
+        # and that's why there is the error of list index out of range
     
         
         

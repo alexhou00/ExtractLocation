@@ -11,7 +11,7 @@ import csv
 
 import networkx as nx
 
-# TO Do: 國、unknown dis, unknown dir
+# TO Do: 國、unknown dis, unknown dir, 數千里
 
 
 class TtoG: # text to graph
@@ -20,11 +20,12 @@ class TtoG: # text to graph
 	graphs = []
 # a 2d list as [[pos1,pos2,dir(radius),len]]
 
+    # initialize edges
 	def __init__(self,inp):
 		self.edges = inp
 		return
-# initialize edges
-	
+
+    # dfs implementation
 	def dfs(self,now,pos):
 		if not now in self.done:
 			self.graphs[-1].append([now,pos[0],pos[1]])
@@ -68,37 +69,27 @@ with open('outputRGH0424_2_manual_bruh.csv', newline='', encoding='utf-8') as cs
 		arr.append([row[0],row[1],row[2],row[3]])
 arr.remove(arr[0])
 
-rem = []
+rem = []  # to remove
 for i in range(len(arr)):
 	if any('-' in sub for sub in arr[i]):
 		rem.append(arr[i])
 		continue
-	arr[i][0].replace("國",'')
-	arr[i][1].replace("國",'')
-	dx = 0
-	dy = 0
-	flag = False
+	arr[i][0] = arr[i][0].replace("國",'')
+	arr[i][1] = arr[i][1].replace("國",'')
+
+	keep = False
 	for j in arr[i][2]:
-		if j == '南':
-			dy+=1
-			flag = True
-		elif j == '北':
-			flag = True
-			dy-=1
-		elif j == '西':
-			flag = True
-			dx-=1
-		elif j == '東':
-			flag = True
-			dx+=1
+		if j in ('南', '北', '西', '東'):
+			keep = True
 	if not arr[i][3][:-1].isnumeric():
-		flag = False
-	if not flag:
+		keep = False
+	if not keep:
 		rem.append(arr[i])
 		continue
 
 for i in rem:
 	arr.remove(i)
+
 paths = []
 for i in range(len(arr)):
 	dx = 0
@@ -106,15 +97,11 @@ for i in range(len(arr)):
 	for j in arr[i][2]:
 		if j == '南':
 			dy-=1
-			flag = True
 		elif j == '北':
-			flag = True
 			dy+=1
 		elif j == '西':
-			flag = True
 			dx-=1
 		elif j == '東':
-			flag = True
 			dx+=1
 	r = int(arr[i][3][:-1]);
 	tx = 0
@@ -133,7 +120,8 @@ conv.run()
 
 print(arr)
 print()
-print(conv.graphs)
+for g in (conv.graphs):
+    print(g)
 
 
 

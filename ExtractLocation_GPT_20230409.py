@@ -80,7 +80,7 @@ def custom_split(string):
     return result
 
 def handle_numerals(row):  # Handle the 里程 column, Chinese to Integers
-    if row[3].endswith('里'):
+    if row[3].endswith('里') and '數' not in row[3]:
         if not any(char.isdigit() for char in row[3]): # if has no numerals (not even one 阿拉伯數字)
             row[3] = str(c2i(row[3][:-1])) + '里'  # c2i -> chinese numerals to integer
     return row

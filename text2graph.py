@@ -8,11 +8,12 @@ Created on Fri Apr 28 11:10:54 2023
 import matplotlib.pyplot as plt
 import math
 import csv
+import re
+
 
 import networkx as nx
 
 # TO Do: unknown dis, unknown dir
-
 
 
 class TtoG: # text to graph
@@ -61,7 +62,7 @@ class TtoG: # text to graph
 #                   [[nname1,xx1,yy1],[nname2,xx2,yy2]]]
 
 
-# main code starts here
+# MAIN CODE STARTS HERE
 
 arr = []
 with open('outputRGH0424_2_manual.csv', newline='', encoding='utf-8') as csvfile:
@@ -72,7 +73,7 @@ arr.remove(arr[0]) # remove header row
 
 rem = []  # to remove
 for i in range(len(arr)):
-	if any('-' in sub for sub in arr[i]):
+	if any('-' in sub for sub in arr[i][:-1]):
 		rem.append(arr[i])
 		continue
 
@@ -83,8 +84,10 @@ for i in range(len(arr)):
 	for j in arr[i][2]:
 		if j in ('南', '北', '西', '東'): # if 方位 is correct
 			keep = True
+	"""
 	if not arr[i][3][:-1].isnumeric(): # if 里程 is not number
 		keep = False
+	"""
 
 	if not keep:
 		rem.append(arr[i])
@@ -94,11 +97,12 @@ for i in rem: # remove invalid ones
 	arr.remove(i)
 
 # Calculate default length
-avg = [int(i[3][:-1]) for i in arr if i[3][:-1].isnumeric()]
+avg = [int(i[3].rstrip('里')) for i in arr if i[3].rstrip('里').isnumeric()]
 avg = sum(avg)//len(avg)
 
 # Process every row
 paths = []
+unknownDis = []
 for i in range(len(arr)):
 	dx = 0
 	dy = 0
@@ -111,11 +115,16 @@ for i in range(len(arr)):
 			dx-=1
 		elif j == '東':
 			dx+=1
-    
-	#if arr[i][3] != '--':
-	r = int(arr[i][3][:-1])
-	#else: 
-		#r = avg
+            
+	flag = False
+	if re.match(r'\d+里', arr[i][3]): #arr[i][3].endswith('里') and arr[i][3][:-1].isnumeric():
+		r = int(arr[i][3].rstrip('里'))
+		flag = True
+	else:
+		unknownDis.append(arr[i])
+		flag = False
+		r = avg
+		# print(arr[i])
 	tx = 0
 	ty = math.pi/2
 	if dx<0:
@@ -126,6 +135,7 @@ for i in range(len(arr)):
 	if abs(dx)+abs(dy) != 0:
 		theta = tx*abs(dx)+ty*abs(dy)
 		theta /= abs(dx)+abs(dy)
+	#if flag: 
 	paths.append([arr[i][0], arr[i][1], theta, r])
 conv = TtoG(paths)
 conv.run()
@@ -159,8 +169,12 @@ for pos in conv.graphs:
     G.add_nodes_from(list(dict_pos.keys()))
     
     # Add edges
-    
-    edges = [(row[0], row[1], {'weight': row[3]}) for row in arr] # formatting arr
+    edges = []
+    for row in arr:
+        if row[3].rstrip('里').isnumeric():
+            edges.append((row[0], row[1], {'weight': row[3].rstrip('里')}))
+        else:
+            edges.append((row[0], row[1], {'weight': str(avg)}))
     cur_places = [i[0] for i in pos] # list of places names in the current graph
 
     # remove edges that is not in the current graph
@@ -171,7 +185,9 @@ for pos in conv.graphs:
     for i in toRemove: edges.remove(i)
 
     G.add_edges_from(edges)
+    # G.add_edges_from([tuple(row[:2]) for row in unknownDis])
     
+
     # nx draw options
     options = {
         'node_color': 'white', # node color
@@ -180,15 +196,27 @@ for pos in conv.graphs:
         'edgecolors': 'black', # node border color
         # 'edge_color': 'k',     # doesnt work idfk why   
     }
+    
     # Draw the graph with custom node positions
+    print(dict_pos)
+    """
+    fixed_pos = []
+    for place in dict_pos:
+        if not in Un"""
+    # Fixed the fixed nodes and spring_layout the free ones (the ones without 里程)
+    
+    dict_pos = nx.spring_layout(G, pos=dict_pos, fixed=dict_pos.keys(), k=800,iterations=5)
+
     nx.draw(G, pos=dict_pos, with_labels=True, **options)
-    edge_labels = {(u, v): d['weight'] for u, v, d in G.edges(data=True)}
+    # draw edges weights (length)
+    edge_labels = {(u, v): d.get('weight') for u, v, d in G.edges(data=True) if int(d.get('weight')) != avg}
     nx.draw_networkx_edge_labels(G, pos=dict_pos, edge_labels=edge_labels, font_size=8)
+    
 
     # Show the graph
-    ax = plt.gca()
+    ax = plt.gca() # gca: Get Current Axis
     ax.margins(0.15)  # leave margin to prevent node got cut
-    plt.axis("off")
-    plt.show()
+    plt.axis("equal") # x and y axis to be same scale
+    plt.show() # no need if plotting in the Plots pane
     
     # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"

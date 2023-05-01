@@ -13,6 +13,7 @@ import os
 import openai
 from openai.error import InvalidRequestError
 
+
 from chinese_numerals import chineseNumeralsToInteger as c2i
 
 

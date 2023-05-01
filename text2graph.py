@@ -11,7 +11,8 @@ import csv
 
 import networkx as nx
 
-# TO Do: 國、unknown dis, unknown dir, 數千里
+# TO Do: unknown dis, unknown dir
+
 
 
 class TtoG: # text to graph
@@ -63,33 +64,40 @@ class TtoG: # text to graph
 # main code starts here
 
 arr = []
-with open('outputRGH0424_2_manual_bruh.csv', newline='', encoding='utf-8') as csvfile:
+with open('outputRGH0424_2_manual.csv', newline='', encoding='utf-8') as csvfile:
 	rows = csv.reader(csvfile)
 	for row in rows:
 		arr.append([row[0],row[1],row[2],row[3]])
-arr.remove(arr[0])
+arr.remove(arr[0]) # remove header row
 
 rem = []  # to remove
 for i in range(len(arr)):
 	if any('-' in sub for sub in arr[i]):
 		rem.append(arr[i])
 		continue
-	arr[i][0] = arr[i][0].replace("國",'')
-	arr[i][1] = arr[i][1].replace("國",'')
+
+	arr[i][0] = arr[i][0].replace('國','')
+	arr[i][1] = arr[i][1].replace('國','')
 
 	keep = False
 	for j in arr[i][2]:
-		if j in ('南', '北', '西', '東'):
+		if j in ('南', '北', '西', '東'): # if 方位 is correct
 			keep = True
-	if not arr[i][3][:-1].isnumeric():
+	if not arr[i][3][:-1].isnumeric(): # if 里程 is not number
 		keep = False
+
 	if not keep:
 		rem.append(arr[i])
 		continue
 
-for i in rem:
+for i in rem: # remove invalid ones
 	arr.remove(i)
 
+# Calculate default length
+avg = [int(i[3][:-1]) for i in arr if i[3][:-1].isnumeric()]
+avg = sum(avg)//len(avg)
+
+# Process every row
 paths = []
 for i in range(len(arr)):
 	dx = 0
@@ -103,7 +111,11 @@ for i in range(len(arr)):
 			dx-=1
 		elif j == '東':
 			dx+=1
-	r = int(arr[i][3][:-1]);
+    
+	#if arr[i][3] != '--':
+	r = int(arr[i][3][:-1])
+	#else: 
+		#r = avg
 	tx = 0
 	ty = math.pi/2
 	if dx<0:
@@ -112,9 +124,9 @@ for i in range(len(arr)):
 		ty *= 3
 	theta = 0
 	if abs(dx)+abs(dy) != 0:
-		theta = tx*abs(dx)+ty*abs(dy);
+		theta = tx*abs(dx)+ty*abs(dy)
 		theta /= abs(dx)+abs(dy)
-	paths.append([arr[i][0],arr[i][1],theta,r])
+	paths.append([arr[i][0], arr[i][1], theta, r])
 conv = TtoG(paths)
 conv.run()
 
@@ -125,7 +137,6 @@ for g in (conv.graphs):
 
 
 
-
 for pos in conv.graphs:
     # Create a graph
     G = nx.Graph()
@@ -133,9 +144,7 @@ for pos in conv.graphs:
     plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # Chinese fonts 
     
     
-    
     # Define the positions of the nodes
-    # pos = conv.graphs[0] #{1: (0, 0), 2: (1, 1), 3: (2, 0), 4: (1, -1)}
     
     dict_pos = {}
     
@@ -149,9 +158,21 @@ for pos in conv.graphs:
     # Add some nodes
     G.add_nodes_from(list(dict_pos.keys()))
     
-    from matplotlib.font_manager import FontProperties
-    font = FontProperties(fname=r"C:\Alex\Fonts\Google\Noto_Sans_TC\NotoSansTC-Regular.otf", size=12)
+    # Add edges
     
+    edges = [(row[0], row[1], {'weight': row[3]}) for row in arr] # formatting arr
+    cur_places = [i[0] for i in pos] # list of places names in the current graph
+
+    # remove edges that is not in the current graph
+    toRemove = []
+    for i in edges:
+        if not (i[0] in cur_places and i[1] in cur_places):
+            toRemove.append(i)
+    for i in toRemove: edges.remove(i)
+
+    G.add_edges_from(edges)
+    
+    # nx draw options
     options = {
         'node_color': 'white', # node color
         'node_size': 800, # node size
@@ -160,8 +181,9 @@ for pos in conv.graphs:
         # 'edge_color': 'k',     # doesnt work idfk why   
     }
     # Draw the graph with custom node positions
-    nx.draw(G, pos=dict_pos, with_labels=True, **options) #, font_family=font.get_name(), font_size=12)
-    
+    nx.draw(G, pos=dict_pos, with_labels=True, **options)
+    edge_labels = {(u, v): d['weight'] for u, v, d in G.edges(data=True)}
+    nx.draw_networkx_edge_labels(G, pos=dict_pos, edge_labels=edge_labels, font_size=8)
 
     # Show the graph
     ax = plt.gca()
@@ -169,4 +191,4 @@ for pos in conv.graphs:
     plt.axis("off")
     plt.show()
     
-    # font-path -> "C:\Users\alexh\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"
+    # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"

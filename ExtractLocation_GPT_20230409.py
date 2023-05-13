@@ -19,7 +19,7 @@ from chinese_numerals import chineseNumeralsToInteger as c2i
 
 import csv
 
-UNKNOWN_KEYWORDS = ["--", "-", "不詳", "", "無", "未提及", "不明", "未提及", "未嘗見", "未提供", "無資料", '/', "未知"]
+UNKNOWN_KEYWORDS = ["--", "-", "不詳", "", "無", "未詳", "未提及", "資訊不足", "不明", "未提及", "未嘗見", "未提供", "無資料", '/', "未知"]
 UNKNOWN_PREFIXES = ['無具體', '文中未', '文本未']
 
 
@@ -51,7 +51,7 @@ def replace_unknown(lst):
 def split_text(text): # split paragraph in half, keeping the whole sentence
     # Used when if a paragraph is too long
     # Split the text into sentences
-    sentences = text.split('. ')
+    sentences = text.split('。')
     # Find the index of the sentence closest to the center of the text
     mid_index = len(sentences)//2
     min_distance = abs(len(text)/2 - len(sentences[mid_index])/2)
@@ -61,9 +61,9 @@ def split_text(text): # split paragraph in half, keeping the whole sentence
             mid_index = i
             min_distance = distance
     # Join the first half of the sentences
-    first_half = '. '.join(sentences[:mid_index+1])
+    first_half = '。'.join(sentences[:mid_index+1])
     # Join the second half of the sentences
-    second_half = '. '.join(sentences[mid_index+1:])
+    second_half = '。'.join(sentences[mid_index+1:])
     # Combine the halves and return them
     return first_half, second_half
 
@@ -149,7 +149,7 @@ openai.api_key = os.environ['openai_api']
 books = ['史記v123', '漢書v96', '後漢書v88']
 
 # bookNum 史記 0; 漢書 1; 後漢書 2
-bookNum = 1
+bookNum = 2
 book = books[bookNum]
 columns = ['國名', '相對地點', '方位', '里程', '來源']
 
@@ -167,13 +167,15 @@ text = ''.join(texts)
 prompt = f'''
 以下為部分{keep_nonascii_chars(book)}文本，請擷取文本中關於各國相對於某地點的距離與方位資料。並將{'、'.join(columns)}設定為欄位，請僅根據文本所提供的資訊製成表格，並保持里程為原文之中文數字，且切勿亂湊句子，若無合適結果可略過：
 '''
-
+prompt = f'''
+以下為部分{keep_nonascii_chars(book)}文本，請擷取文本中關於各國相對於某地點的距離與方位資料。並將{'、'.join(columns)}設定為欄位，請僅根據文本所提供的資訊製成表格，並保持里程為原文之中文數字，且切勿亂湊句子，若無合適結果可略過：
+'''
 # clear csv file
 with open('gpt_output.csv', mode='w') as file:
     file.truncate(0)
 
 # loop every paragraph
-for num, paragraph in enumerate(custom_split(text)):
+for num, paragraph in enumerate(custom_split(text)[31:]):
     
     msgs = [{"role": "user", "content": prompt + paragraph}]
 
@@ -181,15 +183,22 @@ for num, paragraph in enumerate(custom_split(text)):
         getResponseAndWriteCSV(msgs)
         
     except InvalidRequestError as e: # This model's maximum context length is 4097 tokens. Catch errors if too many tokens requested
-        print(e, "split in half")
+        print(e, "\n splitting in half")
         paragraphs = split_text(paragraph)
         
         for paragraph_i in paragraphs:
             msgs = [{"role": "user", "content": prompt + paragraph_i}]
             
-            getResponseAndWriteCSV(msgs)
+            try:
+                getResponseAndWriteCSV(msgs)
+                
+            except InvalidRequestError as e: # This model's maximum context length is 4097 tokens. Catch errors if too many tokens requested
+                print(e, "\n splitting in half AGAIN")
+                paragraphs = split_text(paragraph)
+                
+                for paragraph_i in paragraphs:
+                    msgs = [{"role": "user", "content": prompt + paragraph_i}]
+                    
+                    getResponseAndWriteCSV(msgs)
             
-
-    
-
 

@@ -10,6 +10,7 @@ import math
 import csv
 import re
 
+import hashlib
 
 import networkx as nx
 
@@ -62,17 +63,46 @@ class TtoG: # text to graph
 #                   [[nname1,xx1,yy1],[nname2,xx2,yy2]]]
 
 
-# MAIN CODE STARTS HERE
+def find_edge(data, match):
+    for sublist in data:
+        if sublist[:2] == list(match):
+            return sublist[-1]
+    return None
 
+def hashColor(string_to_hash):
+    # Define the string to hash and the maximum RGB value
+    # string_to_hash = "hello world"
+    max_rgb_value = 255
+    if string_to_hash != None:
+        # Hash the string using SHA-256 and convert the resulting hexadecimal string to an integer
+        hashed_string = int(hashlib.sha256(string_to_hash.encode()).hexdigest(), 16)
+        
+        # Extract the red, green, and blue components from the hashed integer
+        red = hashed_string % (max_rgb_value + 1)
+        green = (hashed_string // (max_rgb_value + 1)) % (max_rgb_value + 1)
+        blue = (hashed_string // ((max_rgb_value + 1) ** 2)) % (max_rgb_value + 1)
+        
+        # Create an RGB tuple using the extracted color components
+        rgb_tuple = (red, green, blue)
+        
+        return rgb_tuple # Output: (190, 160, 205)
+    else:
+        return (0,0,0)
+
+# MAIN CODE STARTS HERE
+csvfilename = 'outputRGH0424_2_manual' # outputRGH0424_2_manual outputBOH0424 outputBLH0424
 arr = []
-with open('outputRGH0424_2_manual.csv', newline='', encoding='utf-8') as csvfile:
+# ref = []
+with open(csvfilename+".csv", newline='', encoding='utf-8') as csvfile:
 	rows = csv.reader(csvfile)
 	for row in rows:
-		arr.append([row[0],row[1],row[2],row[3]])
+		arr.append([row[0],row[1],row[2],row[3], row[4]])
+		# ref.append([row[0],row[1],row[2],row[3],row[4]])
 arr.remove(arr[0]) # remove header row
+# ref.remove(ref[0]) # remove header row
 
 rem = []  # to remove
-for i in range(len(arr)):
+for i in range(len(arr)-1):
 	if any('-' in sub for sub in arr[i][:-1]):
 		rem.append(arr[i])
 		continue
@@ -103,7 +133,7 @@ avg = sum(avg)//len(avg)
 # Process every row
 paths = []
 unknownDis = []
-for i in range(len(arr)):
+for i in range(len(arr)-1):
 	dx = 0
 	dy = 0
 	for j in arr[i][2]:
@@ -116,15 +146,12 @@ for i in range(len(arr)):
 		elif j == '東':
 			dx+=1
             
-	flag = False
 	if re.match(r'\d+里', arr[i][3]): #arr[i][3].endswith('里') and arr[i][3][:-1].isnumeric():
 		r = int(arr[i][3].rstrip('里'))
-		flag = True
 	else:
-		unknownDis.append(arr[i])
-		flag = False
+		unknownDis.append(arr[i])		
 		r = avg
-		# print(arr[i])
+
 	tx = 0
 	ty = math.pi/2
 	if dx<0:
@@ -135,19 +162,19 @@ for i in range(len(arr)):
 	if abs(dx)+abs(dy) != 0:
 		theta = tx*abs(dx)+ty*abs(dy)
 		theta /= abs(dx)+abs(dy)
-	#if flag: 
 	paths.append([arr[i][0], arr[i][1], theta, r])
 conv = TtoG(paths)
 conv.run()
 
 print(arr)
-print()
+arr = sorted(arr, key=lambda x: int(''.join([c for c in x[3] if c.isdigit()])) if ''.join([c for c in x[3] if c.isdigit()]) != '' else 0, reverse=True)
+
 for g in (conv.graphs):
     print(g)
 
 
 
-for pos in conv.graphs:
+for n, pos in enumerate(conv.graphs):
     # Create a graph
     G = nx.Graph()
     
@@ -205,18 +232,22 @@ for pos in conv.graphs:
         if not in Un"""
     # Fixed the fixed nodes and spring_layout the free ones (the ones without 里程)
     
-    dict_pos = nx.spring_layout(G, pos=dict_pos, fixed=dict_pos.keys(), k=800,iterations=5)
+    dict_pos = nx.spring_layout(G, pos=dict_pos, fixed=dict_pos.keys(), k=800, iterations=5)
 
     nx.draw(G, pos=dict_pos, with_labels=True, **options)
     # draw edges weights (length)
     edge_labels = {(u, v): d.get('weight') for u, v, d in G.edges(data=True) if int(d.get('weight')) != avg}
     nx.draw_networkx_edge_labels(G, pos=dict_pos, edge_labels=edge_labels, font_size=8)
+    edge_color = [(find_edge(arr, match), hashColor(find_edge(arr, match))) for match in list(G.edges)]
+    nx.draw_networkx_edges(G, pos=dict_pos, edge_color=[c[1] for c in edge_color])
+    print(edge_color)
     
 
     # Show the graph
     ax = plt.gca() # gca: Get Current Axis
     ax.margins(0.15)  # leave margin to prevent node got cut
     plt.axis("equal") # x and y axis to be same scale
-    plt.show() # no need if plotting in the Plots pane
-    
+    # plt.show() # no need if plotting in the Plots pane
+    plt.savefig(f'plt/{csvfilename}_{n}.png', dpi=1200) # save figure; resolution=1200dpi
+    plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
     # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"

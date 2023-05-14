@@ -7,19 +7,24 @@ Created on Sun May 14 15:25:24 2023
 
 import networkx as nx
 import matplotlib.pyplot as plt
+
 from sklearn.manifold import MDS
+from sklearn.decomposition import PCA
+from sklearn.impute import SimpleImputer
+
 import numpy as np
 import math
 
-def calculate_bearing(coord1, coord2):
-    lat1, lon1 = coord1
-    lat2, lon2 = coord2
-    dLon = lon2 - lon1
-    x = math.cos(math.radians(lat2)) * math.sin(math.radians(dLon))
-    y = math.cos(math.radians(lat1)) * math.sin(math.radians(lat2)) - math.sin(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.cos(math.radians(dLon))
-    bearing = math.atan2(x, y)
+def calculate_bearing(coords_i, coords_j):
+    lat1, lon1 = coords_i
+    lat2, lon2 = coords_j
+    dlon = (lon2 - lon1)
+    dlat = lat2 - lat1
+    bearing = math.atan2(dlon, dlat)  # atan2(y,x) =  arctan(y/x) get 方位角
     bearing = math.degrees(bearing)
+
     return bearing
+    
 
 city_names = ['A', 'B', 'C', 'D', 'E']
 coords = [
@@ -41,29 +46,56 @@ for i in range(n_cities):
             distances[i, j] = np.linalg.norm(np.array(coords[i]) - np.array(coords[j]))
             bearings[i, j] = calculate_bearing(coords[i], coords[j])
             
-from sklearn.decomposition import PCA
-from sklearn.impute import SimpleImputer
-
-# Create a distance matrix with missing data
-n_cities = len(city_names)
-missing_values = np.random.rand(n_cities, n_cities) < 0.3
+missing_values = np.random.rand(n_cities, n_cities) < 0.0
+distances_2 = distances.copy()
 distances[missing_values] = np.nan
-# Fill in missing values with mean distance
-imputer = SimpleImputer(strategy='mean')
-distances = imputer.fit_transform(distances)
-# Calculate 2D coordinates using PCA algorithm
-pca = PCA(n_components=2, svd_solver='full')
-coords_2d = pca_coords = pca.fit_transform(distances)
-"""
-# Calculate PCA coordinates
-pca = PCA(n_components=2)
-features = np.hstack((distances.reshape(-1, 1), bearings.reshape(-1, 1)))
-coords_2d = pca_coords = pca.fit_transform(features)"""
 
+# Convert bearings to radians
+bearings_rad = np.radians(bearings)
+
+# Compute estimated distances using bearings
+distances_est = np.zeros_like(distances)
 """
+for i in range(len(city_names)):
+    for j in range(len(city_names)):
+        if np.isnan(distances[i,j]):
+            if i != j:
+                distances_est[i,j] = np.sqrt(2 - 2*np.cos(bearings_rad[i,j]))
+            else:
+                distances_est[i,j]=0
+        else:
+            distances_est[i,j] = distances[i,j]
+"""
+
+            
+distances_est[np.where(~np.isnan(distances))] = distances[np.where(~np.isnan(distances))]
+
+# Fill in missing distances using bearings
+while np.isnan(distances_est).sum() > 0:
+    for i in range(len(city_names)):
+        for j in range(i+1, len(city_names)):
+            if np.isnan(distances_est[i,j]):
+                # Find a city k with known distances to both i and j
+                k = np.intersect1d(np.where(~np.isnan(distances_est[i]))[0], np.where(~np.isnan(distances_est[j]))[0])
+                if len(k) > 0:
+                    k = k[0]
+                    di = distances_est[i,k]
+                    dj = distances_est[j,k]
+                    bearing = bearings_rad[i,j]
+                    # Use law of cosines to estimate distance between i and j
+                    d_ij = np.sqrt(di**2 + dj**2 - 2*di*dj*np.cos(np.abs(bearing)))
+                    distances_est[i,j] = d_ij
+                    distances_est[j,i] = d_ij
+    
+for i in range(len(city_names)):
+    for j in range(len(city_names)):
+        if i>j:
+            distances_est[i,j] = distances_est[j, i]   
+    
 # Calculate 2D coordinates using MDS algorithm
 mds = MDS(n_components=2, dissimilarity='precomputed', random_state=45)
-coords_2d = mds_coords = mds.fit_transform(distances)"""
+coords_2d = mds_coords = mds.fit_transform(distances_est)
+
 """
 # Correct MDS coordinates according to bearing (方位角)
 coords_2d = np.zeros_like(mds_coords)
@@ -75,47 +107,7 @@ for i, city1 in enumerate(city_names):
             rotation_matrix = np.array([[math.cos(bearing_rad), -math.sin(bearing_rad)],
                                         [math.sin(bearing_rad), math.cos(bearing_rad)]])
             coords_2d[j] = np.dot(rotation_matrix, mds_coords[j])"""
-"""
-# Calculate 2D coordinates using MDS algorithm with interpolation
-def mds_interpolate(distances, bearings, city_names):
-    
-    distances[1][1] = np.nan
-    distances[2][3] = np.nan
-    
-    # Calculate initial MDS coordinates
-    mds = MDS(n_components=2, dissimilarity='precomputed', random_state=42)
-    mds_coords = mds.fit_transform(distances)
-    
-    
-    # MDS interpolation
-    for i, city1 in enumerate(city_names):
-        for j, city2 in enumerate(city_names):
-            if i < j:
-                if np.isnan(distances[i, j]) or np.isnan(bearings[i, j]):
-                    # Interpolate missing distance and bearing values
-                    d = np.sqrt(np.sum((mds_coords[i] - mds_coords[j]) ** 2))
-                    b = math.degrees(math.atan2(mds_coords[j][1] - mds_coords[i][1], mds_coords[j][0] - mds_coords[i][0]))
-                    if np.isnan(distances[i, j]):
-                        distances[i, j] = d
-                        distances[j, i] = d
-                    if np.isnan(bearings[i, j]):
-                        bearings[i, j] = b
-                        bearings[j, i] = b
-    
-    # Correct MDS coordinates according to bearing
-    coords_2d = np.zeros_like(mds_coords)
-    for i, city1 in enumerate(city_names):
-        for j, city2 in enumerate(city_names):
-            if i < j:
-                bearing = bearings[i, j]
-                bearing_rad = math.radians(bearing)
-                rotation_matrix = np.array([[math.cos(bearing_rad), -math.sin(bearing_rad)],
-                                            [math.sin(bearing_rad), math.cos(bearing_rad)]])
-                coords_2d[j] = np.dot(rotation_matrix, mds_coords[j])
-    return mds_coords #coords_2d
 
-coords_2d = mds_interpolate(distances, bearings, city_names)
-"""
 # 創建一個空的無向圖
 G = nx.Graph()
 

@@ -90,7 +90,8 @@ def hashColor(string_to_hash):
         return (0,0,0)
 
 # MAIN CODE STARTS HERE
-csvfilename = 'outputRGH0424_2_manual' # outputRGH0424_2_manual outputBOH0424 outputBLH0424
+filenames = ['outputRGH0424_2_manual', 'outputBOH0424', 'outputBLH0424']
+csvfilename = filenames[2]
 arr = []
 # ref = []
 with open(csvfilename+".csv", newline='', encoding='utf-8') as csvfile:
@@ -130,7 +131,7 @@ for i in rem: # remove invalid ones
 avg = [int(i[3].rstrip('里')) for i in arr if i[3].rstrip('里').isnumeric()]
 avg = sum(avg)//len(avg)
 
-# Process every row
+# Process every row (table to list (with direction))
 paths = []
 unknownDis = []
 for i in range(len(arr)-1):
@@ -163,6 +164,7 @@ for i in range(len(arr)-1):
 		theta = tx*abs(dx)+ty*abs(dy)
 		theta /= abs(dx)+abs(dy)
 	paths.append([arr[i][0], arr[i][1], theta, r])
+
 conv = TtoG(paths)
 conv.run()
 
@@ -218,9 +220,10 @@ for n, pos in enumerate(conv.graphs):
     # nx draw options
     options = {
         'node_color': 'white', # node color
-        'node_size': 800, # node size
+        'node_size': 350, # node size
         'linewidths': 1, # node border width
         'edgecolors': 'black', # node border color
+        'font_size': 6
         # 'edge_color': 'k',     # doesnt work idfk why   
     }
     
@@ -237,7 +240,7 @@ for n, pos in enumerate(conv.graphs):
     nx.draw(G, pos=dict_pos, with_labels=True, **options)
     # draw edges weights (length)
     edge_labels = {(u, v): d.get('weight') for u, v, d in G.edges(data=True) if int(d.get('weight')) != avg}
-    nx.draw_networkx_edge_labels(G, pos=dict_pos, edge_labels=edge_labels, font_size=8)
+    nx.draw_networkx_edge_labels(G, pos=dict_pos, edge_labels=edge_labels, font_size=4)
     edge_color = [(find_edge(arr, match), hashColor(find_edge(arr, match))) for match in list(G.edges)]
     nx.draw_networkx_edges(G, pos=dict_pos, edge_color=[c[1] for c in edge_color])
     print(edge_color)

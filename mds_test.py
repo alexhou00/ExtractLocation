@@ -50,49 +50,56 @@ missing_values = np.random.rand(n_cities, n_cities) < 0.3
 distances_2 = distances.copy()
 distances[missing_values] = np.nan
 
-def triangulate(distances_est, bearings):
-    n = len(distances_est)
-    D = np.zeros((n, n))
-    for i in range(n):
-        for j in range(i + 1, n):
-            if not np.isnan(distances_est[i, j]):
-                D[i, j] = D[j, i] = distances_est[i, j]
-    for i in range(10):
-        for i in range(n):
-            for j in range(i+1, n):
-                if np.isnan(distances_est[i, j]):
-                    triangles = []
-                    for k in range(n):
-                        if k == i or k == j:
-                            continue
-                        if not np.isnan(distances_est[i, k]) and not np.isnan(bearings[i, k]) and not np.isnan(distances_est[j, k]) and not np.isnan(bearings[j, k]):
-                            a = D[i, k]
-                            b = D[j, k]
-                            alpha = bearings[i, k] * np.pi / 180.0
-                            beta = bearings[j, k] * np.pi / 180.0
-                            dx = b * np.sin(beta) - a * np.sin(alpha)
-                            dy = a * np.cos(alpha) - b * np.cos(beta)
-                            area = 0.5 * abs(dx * b + dy * a)
-                            height = 2 * area / D[k, j]
-                            triangles.append((area, height))
-                    if len(triangles) == 0:
-                        continue
-                    weights = np.array([t[1] for t in triangles])
-                    distances_est[i, j] = np.sum(weights * np.array([t[0] for t in triangles])) / np.sum(weights)
-                    D[i, j] = D[j, i] = distances_est[i, j]
-                    
-    for i in range(n):
-        for j in range(i, n):
-            if i == j:
-                distances_est[i, j] == 0
-            else:
-                distances_est[j, i] = distances_est[i, j]
-    distances_est[np.isnan(distances_est)] = 0
-    return distances_est
 
+
+from scipy.optimize import least_squares
+
+def triangulate(distances, bearings):
+    # Iterate over all pairs of cities
+    for i in range(len(distances)):
+        for j in range(i+1, len(distances)):
+            if i==j:
+                distances[i,j] = 0
+            if np.isnan(distances[i,j]) or np.isnan(bearings[i,j]):
+                # Estimate missing distance and bearing using triangulation
+                for k in range(len(distances)):
+                    if k != i and k != j and not np.isnan(distances[i,k]) and not np.isnan(distances[j,k]) and not np.isnan(bearings[i,k]) and not np.isnan(bearings[j,k]):
+                        # Calculate vector from city i to k
+                        vec_i_to_k = distances[i,k] * np.array([np.cos(bearings[i,k]), np.sin(bearings[i,k])])
+
+                        # Calculate vector from city j to k
+                        vec_j_to_k = distances[j,k] * np.array([np.cos(bearings[j,k]), np.sin(bearings[j,k])])
+
+                        # Define function to minimize
+                        def func(x):
+                            dist_i_to_x = np.linalg.norm(x - vec_i_to_k)
+                            dist_j_to_x = np.linalg.norm(x - vec_j_to_k)
+                            return np.array([distances[i,j] - dist_i_to_x - dist_j_to_x])
+
+                        # Use least squares to minimize the function
+                        try:
+                            res = least_squares(func, np.zeros(2))
+
+                            # Calculate estimated distance and bearing between i and j
+                            dist_estimate = res.fun[0]
+                            bearing_estimate = np.arctan2(res.x[1], res.x[0])
     
-distances_est = triangulate(distances, bearings)
+                            # Update matrices
+                            distances[i,j] = dist_estimate
+                            distances[j,i] = dist_estimate
+                            bearings[i,j] = bearing_estimate
+                            bearings[j,i] = bearing_estimate
+                            break
+                        except ValueError:
+                            break
+    return distances, bearings
 
+distances_est, bearings_est = triangulate(distances.copy(), bearings)
+for i in range(len(distances_est)):
+    for j in range(len(distances_est)):
+        if i>j:
+            distances_est[i,j] = distances_est[j,i]
+distances_est[np.isnan(distances_est)] = 0
 # Calculate 2D coordinates using MDS algorithm
 mds = MDS(n_components=2, dissimilarity='precomputed', random_state=45)
 coords_2d = mds_coords = mds.fit_transform(distances_est)

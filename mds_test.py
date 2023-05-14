@@ -94,14 +94,15 @@ def triangulate(distances, bearings):
                             break
     return distances, bearings
 
-distances_est, bearings_est = triangulate(distances.copy(), bearings)
+# distances_est, bearings_est = triangulate(distances.copy(), bearings)
+distances_est = distances.copy()
 for i in range(len(distances_est)):
     for j in range(len(distances_est)):
         if i>j:
             distances_est[i,j] = distances_est[j,i]
-distances_est[np.isnan(distances_est)] = 0
+distances_est[np.isnan(distances_est)] = 0  # mean?
 # Calculate 2D coordinates using MDS algorithm
-mds = MDS(n_components=2, dissimilarity='precomputed', random_state=45)
+mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42)
 coords_2d = mds_coords = mds.fit_transform(distances_est)
 
 """

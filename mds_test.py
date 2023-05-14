@@ -46,52 +46,53 @@ for i in range(n_cities):
             distances[i, j] = np.linalg.norm(np.array(coords[i]) - np.array(coords[j]))
             bearings[i, j] = calculate_bearing(coords[i], coords[j])
             
-missing_values = np.random.rand(n_cities, n_cities) < 0.0
+missing_values = np.random.rand(n_cities, n_cities) < 0.3
 distances_2 = distances.copy()
 distances[missing_values] = np.nan
 
-# Convert bearings to radians
-bearings_rad = np.radians(bearings)
-
-# Compute estimated distances using bearings
-distances_est = np.zeros_like(distances)
-"""
-for i in range(len(city_names)):
-    for j in range(len(city_names)):
-        if np.isnan(distances[i,j]):
-            if i != j:
-                distances_est[i,j] = np.sqrt(2 - 2*np.cos(bearings_rad[i,j]))
+def triangulate(distances_est, bearings):
+    n = len(distances_est)
+    D = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            if not np.isnan(distances_est[i, j]):
+                D[i, j] = D[j, i] = distances_est[i, j]
+    for i in range(10):
+        for i in range(n):
+            for j in range(i+1, n):
+                if np.isnan(distances_est[i, j]):
+                    triangles = []
+                    for k in range(n):
+                        if k == i or k == j:
+                            continue
+                        if not np.isnan(distances_est[i, k]) and not np.isnan(bearings[i, k]) and not np.isnan(distances_est[j, k]) and not np.isnan(bearings[j, k]):
+                            a = D[i, k]
+                            b = D[j, k]
+                            alpha = bearings[i, k] * np.pi / 180.0
+                            beta = bearings[j, k] * np.pi / 180.0
+                            dx = b * np.sin(beta) - a * np.sin(alpha)
+                            dy = a * np.cos(alpha) - b * np.cos(beta)
+                            area = 0.5 * abs(dx * b + dy * a)
+                            height = 2 * area / D[k, j]
+                            triangles.append((area, height))
+                    if len(triangles) == 0:
+                        continue
+                    weights = np.array([t[1] for t in triangles])
+                    distances_est[i, j] = np.sum(weights * np.array([t[0] for t in triangles])) / np.sum(weights)
+                    D[i, j] = D[j, i] = distances_est[i, j]
+                    
+    for i in range(n):
+        for j in range(i, n):
+            if i == j:
+                distances_est[i, j] == 0
             else:
-                distances_est[i,j]=0
-        else:
-            distances_est[i,j] = distances[i,j]
-"""
+                distances_est[j, i] = distances_est[i, j]
+    distances_est[np.isnan(distances_est)] = 0
+    return distances_est
 
-            
-distances_est[np.where(~np.isnan(distances))] = distances[np.where(~np.isnan(distances))]
+    
+distances_est = triangulate(distances, bearings)
 
-# Fill in missing distances using bearings
-while np.isnan(distances_est).sum() > 0:
-    for i in range(len(city_names)):
-        for j in range(i+1, len(city_names)):
-            if np.isnan(distances_est[i,j]):
-                # Find a city k with known distances to both i and j
-                k = np.intersect1d(np.where(~np.isnan(distances_est[i]))[0], np.where(~np.isnan(distances_est[j]))[0])
-                if len(k) > 0:
-                    k = k[0]
-                    di = distances_est[i,k]
-                    dj = distances_est[j,k]
-                    bearing = bearings_rad[i,j]
-                    # Use law of cosines to estimate distance between i and j
-                    d_ij = np.sqrt(di**2 + dj**2 - 2*di*dj*np.cos(np.abs(bearing)))
-                    distances_est[i,j] = d_ij
-                    distances_est[j,i] = d_ij
-    
-for i in range(len(city_names)):
-    for j in range(len(city_names)):
-        if i>j:
-            distances_est[i,j] = distances_est[j, i]   
-    
 # Calculate 2D coordinates using MDS algorithm
 mds = MDS(n_components=2, dissimilarity='precomputed', random_state=45)
 coords_2d = mds_coords = mds.fit_transform(distances_est)

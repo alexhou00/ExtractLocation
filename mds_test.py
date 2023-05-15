@@ -45,7 +45,8 @@ for i in range(n_cities):
         if i != j:
             distances[i, j] = np.linalg.norm(np.array(coords[i]) - np.array(coords[j]))
             bearings[i, j] = calculate_bearing(coords[i], coords[j])
-            
+
+# np.random.seed(100)            
 missing_values = np.random.rand(n_cities, n_cities) < 0.3
 distances_2 = distances.copy()
 distances[missing_values] = np.nan
@@ -100,10 +101,22 @@ for i in range(len(distances_est)):
     for j in range(len(distances_est)):
         if i>j:
             distances_est[i,j] = distances_est[j,i]
-distances_est[np.isnan(distances_est)] = 0  # mean?
+#np.fill_diagonal(distances_est, 0)
+#imputer = SimpleImputer(strategy='mean')
+#distances_est = imputer.fit_transform(distances_est)
+distances_avg = distances_est.copy()
+distances_avg[distances_avg == 0] = np.nan
+distances_avg = np.nanmean(distances_avg)
+distances_est[np.isnan(distances_est)] = 0.81 * distances_avg  # mean?
+
 # Calculate 2D coordinates using MDS algorithm
-mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42)
+mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42, 
+          n_init=600, max_iter=300, normalized_stress=False)
 coords_2d = mds_coords = mds.fit_transform(distances_est)
+print(mds.stress_)
+print(mds.n_iter_)
+#print(mds.embedding_)
+#print(mds.dissimilarity_matrix_)
 
 """
 # Correct MDS coordinates according to bearing (方位角)

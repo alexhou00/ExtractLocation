@@ -260,6 +260,11 @@ subgraphs_nodes = conv.graphs  # list of all nodes of each subgraph
 subgraphs = []
 for i in range(len(subgraphs_nodes)):
     subgraph_cur = {}  # current subgraph (dict)
+    
+    # example of a subgraph:
+    #     {'崑崙': [('河', (3.9269908169872414, 2500))],
+    #      '河': [('崑崙', (0.7853981633974483, 2500))]}
+    
     for path in paths:  # iterate every edges of all graphs
         node1, node2, angle, distance = path
         if node1 in subgraphs_nodes[i]: # if current subgraph contains the node
@@ -277,6 +282,7 @@ for i in range(len(subgraphs_nodes)):
     subgraphs.append(subgraph_cur)
 
 
+# Iterate each subgraph to create graphs using MDS and other methods
 for n, subgraph in enumerate(subgraphs):
     subgraph = dict(sorted(subgraph.items(), key=lambda x:x[0])) # subgraph but sorted by dict_key
     
@@ -305,7 +311,7 @@ for n, subgraph in enumerate(subgraphs):
     
     plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # Chinese fonts
     
-    # 添加城市節點和距離邊
+    # Add Nodes of the current subgraph
     for city in subgraph.keys():
         G.add_node(city)
     

@@ -90,8 +90,9 @@ def hashColor(string_to_hash):
         return (0,0,0)
 
 # MAIN CODE STARTS HERE
+bookNum = 1
 filenames = ['outputRGH0424_2_manual', 'outputBOH0424', 'outputBLH0424']
-csvfilename = filenames[2]
+csvfilename = filenames[bookNum]
 arr = []
 # ref = []
 with open(csvfilename+".csv", newline='', encoding='utf-8') as csvfile:
@@ -177,6 +178,7 @@ for g in (conv.graphs):
 
 
 for n, pos in enumerate(conv.graphs):
+    print("graph", n)
     # Create a graph
     G = nx.Graph()
     
@@ -250,7 +252,8 @@ for n, pos in enumerate(conv.graphs):
     ax = plt.gca() # gca: Get Current Axis
     ax.margins(0.15)  # leave margin to prevent node got cut
     plt.axis("equal") # x and y axis to be same scale
-    # plt.show() # no need if plotting in the Plots pane
-    plt.savefig(f'plt/{csvfilename}_{n}.png', dpi=1200) # save figure; resolution=1200dpi
+    #fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
+    #plt.show() # no need if plotting in the Plots pane
+    plt.savefig(f'plt/{csvfilename}_{n}.png', dpi=2400) # save figure; resolution=1200dpi
     plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
     # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"

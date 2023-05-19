@@ -149,9 +149,10 @@ openai.api_key = os.environ['openai_api']
 books = ['史記v123', '漢書v96', '後漢書v88']
 
 # bookNum 史記 0; 漢書 1; 後漢書 2
-bookNum = 2
+bookNum = 0
 book = books[bookNum]
 columns = ['國名', '相對地點', '方位', '里程', '來源']
+columns = ['地點1', '地點2', '方位', '里程', '書籍出處', '原文文句']
 
 # Read Original text (text preprocessing, xml -> str)
 texts = []
@@ -168,14 +169,14 @@ prompt = f'''
 以下為部分{keep_nonascii_chars(book)}文本，請擷取文本中關於各國相對於某地點的距離與方位資料。並將{'、'.join(columns)}設定為欄位，請僅根據文本所提供的資訊製成表格，並保持里程為原文之中文數字，且切勿亂湊句子，若無合適結果可略過：
 '''
 prompt = f'''
-以下為部分{keep_nonascii_chars(book)}文本，請擷取文本中關於各國相對於某地點的距離與方位資料。並將{'、'.join(columns)}設定為欄位，請僅根據文本所提供的資訊製成表格，並保持里程為原文之中文數字，且切勿亂湊句子，若無合適結果可略過：
+假設你是一位態度謹慎、凡事求精確的歷史學者，具有西域傳相關之背景，以下為部分{keep_nonascii_chars(book)}文本，請擷取文本中關於各國相對於某地點的距離與方位資料。並將{'、'.join(columns)}設定為欄位，意即 「{columns[0]} 會在 {columns[1]} 的某方向某距離遠之處」。重要：請僅根據文本所提供的資訊製成表格，若不確定者則勿擷取，請你完全確定後再放入，並保持里程為原文之中文數字，且切勿亂湊句子，地點若為國名則刪去「國」字，若無合適結果或不確定可略過該筆資料：\n（例：若原文為「甲東至乙」，則該列依 "{' | '.join(columns)}" 應為 "甲 | 乙 | 西 | -- | -- | --"）\n（例：若原文為「【集解】漢書云丙在丁西南萬六百里」，則該列應為 "丙 | 丁 | 西南 | 萬六百里 | 集解 | 丙在丁西南萬六百里"，「注意丙、丁皆需有內容且方位、里程至少必有其一後，方能成為一列，且丙、丁皆需為地名」）\n（【】方頭括弧內的文字即表示該句來源，來源可為「索隱」、「正義」、「集解」其中之一，「漢書云…」亦表來源為漢書）\n\n
 '''
 # clear csv file
 with open('gpt_output.csv', mode='w') as file:
     file.truncate(0)
 
 # loop every paragraph
-for num, paragraph in enumerate(custom_split(text)[31:]):
+for num, paragraph in enumerate(custom_split(text)[0:5]):
     
     msgs = [{"role": "user", "content": prompt + paragraph}]
 

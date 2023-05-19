@@ -65,11 +65,11 @@ class TtoG: # text to graph
         return
 
 
-def readfile(bookNum):
+def readfile(csvfilename):
     arr = []
     # ref = []
-    filenames = ['outputRGH0424_2_manual', 'outputBOH0424', 'outputBLH0424']
-    csvfilename = filenames[bookNum]
+    # filenames = ['outputRGH0424_2_manual', 'outputBOH0424', 'outputBLH0424']
+    # csvfilename = filenames[bookNum]
     # open csv file and read
     with open(csvfilename+".csv", newline='', encoding='utf-8') as csvfile:
         rows = csv.reader(csvfile)
@@ -195,36 +195,41 @@ def calculate_bearing(coords_i, coords_j):
     return bearing
 
 def find_optimal_theta(n_cities, G, pos, paths):
-    bearings = np.zeros((n_cities, n_cities))
     bearings = {}
     for city1, city2 in list(G.edges):
-        bearings[(city1, city2)] = calculate_bearing(pos[city1], pos[city2]) % (2 * math.pi)
+        if city1 > city2: 
+            node2, node1 = city1, city2
+        else:
+            node1, node2 = city1, city2
+        bearings[(node1, node2)] = calculate_bearing(pos[node2], pos[node1]) % (2 * math.pi)
     
     bearings_actual = {}
+    # print(paths[0])
     for path in paths:
         node1, node2, angle, distance = path
+        if node1 > node2: 
+            node2, node1 = node1, node2
+            angle = (angle+math.pi) % (2 * math.pi)
         bearings_actual[(node1, node2)] = angle % (2 * math.pi)
     
+    # filter
     bearings_arr = []
     bearings_actual_arr = []
     bearings_keys = []
+    
     for k, v in bearings.items():
         (node1, node2) = k
-        bearings_keys.append(tuple(sorted([node1, node2])))
-        if node2 > node1: 
-            bearings_arr.append(v)
-        else:
-            bearings.append((v+math.pi) % (2 * math.pi))
-        if (node1, node2) in bearings_actual:
-            bearings_actual_arr.append(bearings_actual[(node1, node2)])
-        else: #or (node2, node1) in 
-            bearings_actual_arr.append((bearings_actual[(node2, node1)]+math.pi) % (2 * math.pi))
-            
+        
+        bearings_keys.append((node1, node2))
+        bearings_arr.append(v)
+        bearings_actual_arr.append(bearings_actual[(node1, node2)])
+        
+        
     
     bearings_actual_arr = np.array(bearings_actual_arr)
     bearings_arr = np.array(bearings_arr)
-    #print(bearings_actual_arr[:5])
-    #print(bearings_arr[:5])
+    print(bearings_arr)
+    print(bearings_actual_arr)
     # Compute the error function for a given constant theta
     def error(theta):
         diff = abs(bearings_arr + theta - bearings_actual_arr)
@@ -234,6 +239,10 @@ def find_optimal_theta(n_cities, G, pos, paths):
     result = minimize_scalar(error)
     optimal_theta = result.x
     minimum_error = result.fun
+    print("act", bearings_actual_arr[0])
+    print("cur", bearings_arr[0])
+    print("opt", optimal_theta)
+    print(bearings_keys)
     return optimal_theta, minimum_error
 
 
@@ -242,9 +251,11 @@ def find_optimal_theta(n_cities, G, pos, paths):
 
 # bookNum 史記 0; 漢書 1; 後漢書 2
 bookNum = 0
+filenames = ['outputRGH0424_2_manual', 'outputBOH0424', 'outputBLH0424']
+csvfilename = filenames[bookNum]
 
 # read every row of table to list
-arr = readfile(bookNum)
+arr = readfile(csvfilename)
 
 # convert raw list data to graph edges
 paths = table2paths(arr)
@@ -275,89 +286,90 @@ for i in range(len(subgraphs_nodes)):
     subgraphs.append(subgraph_cur)
 
 
-# for subgraph in subgraphs:
+for n, subgraph in [(0, subgraphs[0]),]: # enumerate(subgraphs):
+
+    subgraph = dict(sorted(subgraph.items(), key=lambda x:x[0]))
     
-subgraph = subgraphs[0] ###
-subgraph = dict(sorted(subgraph.items(), key=lambda x:x[0]))
-
-n_cities = len(subgraph)
-distances = np.empty((n_cities, n_cities))
-
-for i, start_node in enumerate(subgraph):
-    path_weights = bfs_findPath(subgraph, start_node)
-    # print(path_weights)
+    n_cities = len(subgraph)
+    distances = np.empty((n_cities, n_cities))
     
-    path_len = pathWeights2euDis(path_weights)
+    for i, start_node in enumerate(subgraph):
+        path_weights = bfs_findPath(subgraph, start_node)
+        # print(path_weights)
+        
+        path_len = pathWeights2euDis(path_weights)
+        
+        path_len = sorted(path_len.items(), key=lambda x:x[0])
     
-    path_len = sorted(path_len.items(), key=lambda x:x[0])
-
-    distances[i] = np.array([p[1] for p in path_len])
-
-
-mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42, 
-          n_init=400, max_iter=300, normalized_stress=False)
-coords_2d = mds_coords = mds.fit_transform(distances)
-
-G = nx.Graph()
-
-plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # Chinese fonts
-
-# 添加城市節點和距離邊
-for city in subgraph.keys():
-    G.add_node(city)
-
-edge_labels = {}
-for i, (city1, v) in enumerate(subgraph.items()):
-    edges2city1 = [row[0] for row in v]
-    for j, city2 in enumerate(subgraph.keys()):
-        if city2 in edges2city1:
-            G.add_edge(city1, city2, distance=distances[i, j])
-            edge_labels[(city1, city2)] = round(G.edges[city1, city2]['distance'])
-
-pos = {city: coords_2d[index] for index, city in enumerate(subgraph.keys())}
-
-# Deal with Rotation
-
-
-
-optimal_theta, minimum_error = find_optimal_theta(n_cities, G, pos, paths)
-pos_flipped = {}
-for k, v in pos.items():
-    pos_flipped[k] = np.copy(v)
-    pos_flipped[k][0] *= -1
-optimal_theta_flipped, minimum_error_flipped = find_optimal_theta(n_cities, G, pos_flipped, paths)
-if minimum_error_flipped < minimum_error:
-    optimal_theta = optimal_theta_flipped
-    pos = pos_flipped
-rotation_matrix = np.array([[math.cos(optimal_theta), -math.sin(optimal_theta)],
-                            [math.sin(optimal_theta), math.cos(optimal_theta)]])
-
-# 繪製圖形
-# nx draw options
-options = {
-    'node_color': 'white', # node color
-    'node_size': 350, # node size
-    'linewidths': 1, # node border width
-    'edgecolors': 'black', # node border color
-    'font_size': 6
-    # 'edge_color': 'k',     # doesnt work idfk why   
-}
-pos_rotated = pos.copy()
-for k, P in pos.items():
-    pos_rotated[k] = np.dot(rotation_matrix, P)
+        distances[i] = np.array([p[1] for p in path_len])
     
-nx.draw(G, pos_rotated, with_labels=True, **options)
-
-# 添加邊的標籤（only known 距離）
-nx.draw_networkx_edge_labels(G, pos_rotated, edge_labels=edge_labels, font_size=4)
-
-
-# 顯示圖形
-ax = plt.gca() # gca: Get Current Axis
-ax.margins(0.15)  # leave margin to prevent node got cut
-plt.axis("equal") # x and y axis to be same scale
-#fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
-#plt.show() # no need if plotting in the Plots pane
-plt.savefig('plt/test.png', dpi=1200) # save figure; resolution=1200dpi
-plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
-# font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"
+    
+    mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42, 
+              n_init=400, max_iter=300, normalized_stress=False)
+    coords_2d = mds_coords = mds.fit_transform(distances)
+    
+    G = nx.Graph()
+    
+    plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # Chinese fonts
+    
+    # 添加城市節點和距離邊
+    for city in subgraph.keys():
+        G.add_node(city)
+    
+    edge_labels = {}
+    for i, (city1, v) in enumerate(subgraph.items()):
+        edges2city1 = [row[0] for row in v]
+        for j, city2 in enumerate(subgraph.keys()):
+            if city2 in edges2city1:
+                G.add_edge(city1, city2, distance=distances[i, j])
+                edge_labels[(city1, city2)] = round(G.edges[city1, city2]['distance'])
+    
+    pos = {city: coords_2d[index] for index, city in enumerate(subgraph.keys())}
+    
+    # Deal with Rotation
+    
+    
+    
+    optimal_theta, minimum_error = find_optimal_theta(n_cities, G, pos, paths)
+    pos_flipped = {}
+    for k, v in pos.items():
+        pos_flipped[k] = np.copy(v)
+        pos_flipped[k][0] *= -1
+    optimal_theta_flipped, minimum_error_flipped = find_optimal_theta(n_cities, G, pos_flipped, paths)
+    if minimum_error_flipped < minimum_error:
+        optimal_theta = optimal_theta_flipped
+        pos = pos_flipped
+        print("flip")
+    # rotates the coords by theta counterclockwise
+    rotation_matrix = np.array([[math.cos(optimal_theta), math.sin(optimal_theta)],
+                                [-math.sin(optimal_theta), math.cos(optimal_theta)]])
+    
+    # 繪製圖形
+    # nx draw options
+    options = {
+        'node_color': 'white', # node color
+        'node_size': 350, # node size
+        'linewidths': 1, # node border width
+        'edgecolors': 'black', # node border color
+        'font_size': 6
+        # 'edge_color': 'k',     # doesnt work idfk why   
+    }
+    pos_rotated = pos.copy()
+    for k, P in pos.items():
+        pos_rotated[k] = np.matmul(P, rotation_matrix)  # R.T times P (clockwise)
+        
+    nx.draw(G, pos, with_labels=True, **options)
+    
+    # 添加邊的標籤（only known 距離）
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=4)
+    
+    
+    # 顯示圖形
+    ax = plt.gca() # gca: Get Current Axis
+    ax.margins(0.15)  # leave margin to prevent node got cut
+    plt.axis("equal") # x and y axis to be same scale
+    #fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
+    #plt.show() # no need if plotting in the Plots pane
+    plt.savefig(f'plt/{csvfilename}_{n}.png', dpi=1200) # save figure; resolution=1200dpi
+    plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
+    # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"

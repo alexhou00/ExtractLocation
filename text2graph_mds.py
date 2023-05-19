@@ -195,41 +195,36 @@ def calculate_bearing(coords_i, coords_j):
     return bearing
 
 def find_optimal_theta(n_cities, G, pos, paths):
+    bearings = np.zeros((n_cities, n_cities))
     bearings = {}
     for city1, city2 in list(G.edges):
-        if city1 > city2: 
-            node2, node1 = city1, city2
-        else:
-            node1, node2 = city1, city2
-        bearings[(node1, node2)] = calculate_bearing(pos[node2], pos[node1]) % (2 * math.pi)
+        bearings[(city1, city2)] = calculate_bearing(pos[city1], pos[city2]) % (2 * math.pi)
     
     bearings_actual = {}
-    # print(paths[0])
     for path in paths:
         node1, node2, angle, distance = path
-        if node1 > node2: 
-            node2, node1 = node1, node2
-            angle = (angle+math.pi) % (2 * math.pi)
         bearings_actual[(node1, node2)] = angle % (2 * math.pi)
     
-    # filter
     bearings_arr = []
     bearings_actual_arr = []
     bearings_keys = []
-    
     for k, v in bearings.items():
         (node1, node2) = k
-        
-        bearings_keys.append((node1, node2))
-        bearings_arr.append(v)
-        bearings_actual_arr.append(bearings_actual[(node1, node2)])
-        
-        
+        bearings_keys.append(tuple(sorted([node1, node2])))
+        if node2 > node1: 
+            bearings_arr.append(v)
+        else:
+            bearings.append((v+math.pi) % (2 * math.pi))
+        if (node1, node2) in bearings_actual:
+            bearings_actual_arr.append(bearings_actual[(node1, node2)])
+        else: #or (node2, node1) in 
+            bearings_actual_arr.append((bearings_actual[(node2, node1)]+math.pi) % (2 * math.pi))
+            
     
     bearings_actual_arr = np.array(bearings_actual_arr)
     bearings_arr = np.array(bearings_arr)
-    print(bearings_arr)
-    print(bearings_actual_arr)
+    #print(bearings_actual_arr[:5])
+    #print(bearings_arr[:5])
     # Compute the error function for a given constant theta
     def error(theta):
         diff = abs(bearings_arr + theta - bearings_actual_arr)
@@ -239,10 +234,6 @@ def find_optimal_theta(n_cities, G, pos, paths):
     result = minimize_scalar(error)
     optimal_theta = result.x
     minimum_error = result.fun
-    print("act", bearings_actual_arr[0])
-    print("cur", bearings_arr[0])
-    print("opt", optimal_theta)
-    print(bearings_keys)
     return optimal_theta, minimum_error
 
 
@@ -286,28 +277,30 @@ for i in range(len(subgraphs_nodes)):
     subgraphs.append(subgraph_cur)
 
 
-for n, subgraph in [(0, subgraphs[0]),]: # enumerate(subgraphs):
-
-    subgraph = dict(sorted(subgraph.items(), key=lambda x:x[0]))
+for n, subgraph in enumerate(subgraphs):
+    subgraph = dict(sorted(subgraph.items(), key=lambda x:x[0])) # subgraph but sorted by dict_key
     
+    # create empty distance matrix
     n_cities = len(subgraph)
     distances = np.empty((n_cities, n_cities))
     
-    for i, start_node in enumerate(subgraph):
+    # use BFS find the distance matrix
+    for i, start_node in enumerate(subgraph):  # iterate each node (different start node of BFS)
         path_weights = bfs_findPath(subgraph, start_node)
-        # print(path_weights)
         
-        path_len = pathWeights2euDis(path_weights)
+        # calculate and convert the sequence of the recorded path weights: (dir, dis) to euclidean distance
+        path_len = pathWeights2euDis(path_weights) 
         
-        path_len = sorted(path_len.items(), key=lambda x:x[0])
+        path_len = sorted(path_len.items(), key=lambda x:x[0])  # sort to fit in the matrix (the indeces accordingly)
     
         distances[i] = np.array([p[1] for p in path_len])
     
-    
+    # adopt MDS to calculate the nodes position by the distance matrix
     mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42, 
               n_init=400, max_iter=300, normalized_stress=False)
-    coords_2d = mds_coords = mds.fit_transform(distances)
+    coords_2d = mds.fit_transform(distances)
     
+    # create empty graph
     G = nx.Graph()
     
     plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # Chinese fonts
@@ -316,6 +309,7 @@ for n, subgraph in [(0, subgraphs[0]),]: # enumerate(subgraphs):
     for city in subgraph.keys():
         G.add_node(city)
     
+    # create existent edges in current subgraph
     edge_labels = {}
     for i, (city1, v) in enumerate(subgraph.items()):
         edges2city1 = [row[0] for row in v]
@@ -324,25 +318,29 @@ for n, subgraph in [(0, subgraphs[0]),]: # enumerate(subgraphs):
                 G.add_edge(city1, city2, distance=distances[i, j])
                 edge_labels[(city1, city2)] = round(G.edges[city1, city2]['distance'])
     
+    # dict of arrays of node's coords
     pos = {city: coords_2d[index] for index, city in enumerate(subgraph.keys())}
     
     # Deal with Rotation
-    
-    
-    
-    optimal_theta, minimum_error = find_optimal_theta(n_cities, G, pos, paths)
+    optimal_theta, minimum_error = find_optimal_theta(n_cities, G, pos, paths) # find ideal rotation angle
+    # flip graph (might need to flip)
     pos_flipped = {}
     for k, v in pos.items():
         pos_flipped[k] = np.copy(v)
         pos_flipped[k][0] *= -1
-    optimal_theta_flipped, minimum_error_flipped = find_optimal_theta(n_cities, G, pos_flipped, paths)
+    optimal_theta_flipped, minimum_error_flipped = \
+        find_optimal_theta(n_cities, G, pos_flipped, paths) # find ideal rotation angle with flipped graph
     if minimum_error_flipped < minimum_error:
         optimal_theta = optimal_theta_flipped
         pos = pos_flipped
-        print("flip")
     # rotates the coords by theta counterclockwise
-    rotation_matrix = np.array([[math.cos(optimal_theta), math.sin(optimal_theta)],
-                                [-math.sin(optimal_theta), math.cos(optimal_theta)]])
+    rotation_matrix = np.array([[math.cos(optimal_theta), -math.sin(optimal_theta)],
+                                [math.sin(optimal_theta), math.cos(optimal_theta)]])
+    
+    # Rotates the graph with the optimal angle (multiplies the rotation matrix)
+    pos_rotated = pos.copy()
+    for k, P in pos.items():
+        pos_rotated[k] = np.matmul(P, rotation_matrix)  # R.T times P (clockwise) 
     
     # 繪製圖形
     # nx draw options
@@ -352,16 +350,13 @@ for n, subgraph in [(0, subgraphs[0]),]: # enumerate(subgraphs):
         'linewidths': 1, # node border width
         'edgecolors': 'black', # node border color
         'font_size': 6
-        # 'edge_color': 'k',     # doesnt work idfk why   
     }
-    pos_rotated = pos.copy()
-    for k, P in pos.items():
-        pos_rotated[k] = np.matmul(P, rotation_matrix)  # R.T times P (clockwise)
-        
-    nx.draw(G, pos, with_labels=True, **options)
+    
+    # draw graph
+    nx.draw(G, pos_rotated, with_labels=True, **options)
     
     # 添加邊的標籤（only known 距離）
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=4)
+    nx.draw_networkx_edge_labels(G, pos_rotated, edge_labels=edge_labels, font_size=4)
     
     
     # 顯示圖形

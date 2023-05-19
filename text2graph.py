@@ -90,7 +90,7 @@ def hashColor(string_to_hash):
         return (0,0,0)
 
 # MAIN CODE STARTS HERE
-bookNum = 1
+bookNum = 0
 filenames = ['outputRGH0424_2_manual', 'outputBOH0424', 'outputBLH0424']
 csvfilename = filenames[bookNum]
 arr = []

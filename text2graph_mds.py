@@ -12,6 +12,10 @@ import math
 import csv
 import re
 
+from sklearn.manifold import MDS
+import numpy as np
+
+from collections import deque
 
 # Todo: 使用 MDS 中的 dissimilarity='euclidean' (再算方位角旋轉整體)
 # → 套用至西域：選擇有長度有方位者，用 DFS 推出兩兩間距離 → 作 MDS →  找最小誤差的角度旋轉/翻轉整體 → 補上其他邊、點 → 微調位置
@@ -156,6 +160,39 @@ def dfs_findPath(graph, start, visited=None, path=None, path_weights=None):
     return path_weights
 
 
+def bfs_findPath(graph, start):
+    queue = deque([(start, [])])  # Each item in the queue is a tuple (node, weight)
+    path_weights = {start: []}
+
+    while queue:
+        node, weight = queue.popleft()
+
+        for neighbor, edge_weight in graph[node]:
+            if neighbor not in path_weights:
+                queue.append((neighbor, weight + [edge_weight]))
+                path_weights[neighbor] = weight + [edge_weight]
+
+    return path_weights
+
+def pathWeights2euDis(pathw):
+    # list of path: (dir, dis) to euclidean distance
+    path_weights = {}
+    for k, v in pathw.items():
+        x = sum(d * math.cos(theta) for (theta, d) in v)
+        y = sum(d * math.sin(theta) for (theta, d) in v)
+        path_weights[k] = math.sqrt(x**2 + y**2)
+    return path_weights
+
+def calculate_bearing(coords_i, coords_j):
+    lat1, lon1 = list(coords_i)
+    lat2, lon2 = list(coords_j)
+    dlon = (lon2 - lon1)
+    dlat = lat2 - lat1
+    bearing = math.atan2(dlon, dlat)  # atan2(y,x) =  arctan(y/x) get 方位角
+    bearing = math.degrees(bearing)
+
+    return bearing
+
 
 # MAIN CODE STARTS HERE
 
@@ -173,20 +210,21 @@ conv = TtoG(paths)  # TtoG object
 conv.run()  # run dfs
 subgraphs_nodes = conv.graphs  # list of all nodes of each subgraph
 
-
+# create adjecency lists
 subgraphs = []
 for i in range(len(subgraphs_nodes)):
     subgraph_cur = {}  # current subgraph (dict)
     for path in paths:  # iterate every edges of all graphs
-        if path[0] in subgraphs_nodes[i]: # if current subgraph contains the node
-            if path[0] in subgraph_cur:  # if dict already include
-                subgraph_cur[path[0]].append((path[1], (path[2], path[3])))  # (name, (dir, dis)) <- viewed as weight
+        node1, node2, angle, distance = path
+        if node1 in subgraphs_nodes[i]: # if current subgraph contains the node
+            if node1 in subgraph_cur:  # if dict already include
+                subgraph_cur[node1].append((node2, (angle, distance)))  # (name, (dir, dis)) <- viewed as weight
             else:  # otherwise initialize
-                subgraph_cur[path[0]] = [(path[1], (path[2], path[3]))]
-            if path[1] in subgraph_cur:  # undirected graph (so append the other way)
-                subgraph_cur[path[1]].append((path[0], ((path[2]+math.pi)%(2*math.pi), path[3])))  # turn 180 deg
+                subgraph_cur[node1] = [(node2, (angle, distance))]
+            if node2 in subgraph_cur:  # undirected graph (so append the other way)
+                subgraph_cur[node2].append((node1, ((angle+math.pi)%(2*math.pi), distance)))  # turn 180 deg
             else:
-                subgraph_cur[path[1]] = [(path[0], ((path[2]+math.pi)%(2*math.pi), path[3]))]
+                subgraph_cur[node2] = [(node1, ((angle+math.pi)%(2*math.pi), distance))]
     for key in subgraphs_nodes[i]:
         if key not in subgraph_cur:  # just in case there are empty ones
             subgraph_cur[key] = []
@@ -194,6 +232,73 @@ for i in range(len(subgraphs_nodes)):
 
 
 # for subgraph in subgraphs:
-subgraph = subgraphs[0]
-path_weights = dfs_findPath(subgraph, '大宛')
-print(path_weights)
+    
+subgraph = subgraphs[0] ###
+subgraph = dict(sorted(subgraph.items(), key=lambda x:x[0]))
+
+n_cities = len(subgraph)
+distances = np.empty((n_cities, n_cities))
+
+for i, start_node in enumerate(subgraph):
+    path_weights = bfs_findPath(subgraph, start_node)
+    # print(path_weights)
+    
+    path_len = pathWeights2euDis(path_weights)
+    
+    path_len = sorted(path_len.items(), key=lambda x:x[0])
+
+    distances[i] = np.array([p[1] for p in path_len])
+
+
+mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42, 
+          n_init=600, max_iter=300, normalized_stress=False)
+coords_2d = mds_coords = mds.fit_transform(distances)
+
+G = nx.Graph()
+
+plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # Chinese fonts
+
+# 添加城市節點和距離邊
+for city in subgraph.keys():
+    G.add_node(city)
+
+for i, city1 in enumerate(subgraph.keys()):
+    for j, city2 in enumerate(subgraph.keys()):
+        if i < j:
+            G.add_edge(city1, city2, distance=distances[i, j]) 
+
+# 繪製圖形
+# nx draw options
+options = {
+    'node_color': 'white', # node color
+    'node_size': 350, # node size
+    'linewidths': 1, # node border width
+    'edgecolors': 'black', # node border color
+    'font_size': 6
+    # 'edge_color': 'k',     # doesnt work idfk why   
+}
+pos = {city: coords_2d[index] for index, city in enumerate(subgraph.keys())}
+nx.draw(G, pos, with_labels=True, **options)
+
+# 添加邊的標籤（距離）
+edge_labels = {(city1, city2): round(G.edges[city1, city2]['distance'], 2) for city1, city2 in G.edges}
+nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=4)
+
+
+bearings = np.zeros((n_cities, n_cities))
+for i in range(n_cities):
+    for j in range(n_cities):
+        if i != j:
+            bearings[i, j] = calculate_bearing(coords_2d[i], coords_2d[j])
+
+
+# 顯示圖形
+
+ax = plt.gca() # gca: Get Current Axis
+ax.margins(0.15)  # leave margin to prevent node got cut
+plt.axis("equal") # x and y axis to be same scale
+#fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
+#plt.show() # no need if plotting in the Plots pane
+plt.savefig('plt/test.png', dpi=2400) # save figure; resolution=1200dpi
+plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
+# font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"

@@ -14,6 +14,7 @@ import re
 
 from sklearn.manifold import MDS
 import numpy as np
+from scipy.optimize import minimize_scalar
 
 from collections import deque
 
@@ -189,9 +190,46 @@ def calculate_bearing(coords_i, coords_j):
     dlon = (lon2 - lon1)
     dlat = lat2 - lat1
     bearing = math.atan2(dlon, dlat)  # atan2(y,x) =  arctan(y/x) get 方位角
-    bearing = math.degrees(bearing)
+    # bearing = math.degrees(bearing)
 
     return bearing
+
+def find_optimal_theta(n_cities, G, pos, paths):
+    bearings = np.zeros((n_cities, n_cities))
+    bearings = {}
+    for city1, city2 in list(G.edges):
+        bearings[(city1, city2)] = calculate_bearing(pos[city1], pos[city2]) % math.pi
+    
+    bearings_actual = {}
+    for path in paths:
+        node1, node2, angle, distance = path
+        bearings_actual[(node1, node2)] = angle % math.pi
+    
+    bearings_arr = []
+    bearings_actual_arr = []
+    bearings_keys = []
+    for k, v in bearings.items():
+        (node1, node2) = k
+        bearings_keys.append(tuple(sorted([node1, node2])))
+        bearings_arr.append(v)
+        if (node1, node2) in bearings_actual:
+            bearings_actual_arr.append(bearings_actual[(node1, node2)])
+        else: #or (node2, node1) in 
+            bearings_actual_arr.append(bearings_actual[(node2, node1)])
+            
+    
+    bearings_actual_arr = np.array(bearings_actual_arr)
+    bearings_arr = np.array(bearings_arr)
+    # Compute the error function for a given constant theta
+    def error(theta):
+        return np.sum(abs(bearings_arr + theta - bearings_actual_arr)**2)
+    
+    # Use scipy.optimize.minimize_scalar to find the minimum error and corresponding theta
+    result = minimize_scalar(error)
+    optimal_theta = result.x
+    minimum_error = result.fun
+    return optimal_theta, minimum_error
+
 
 
 # MAIN CODE STARTS HERE
@@ -251,7 +289,7 @@ for i, start_node in enumerate(subgraph):
 
 
 mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42, 
-          n_init=600, max_iter=300, normalized_stress=False)
+          n_init=400, max_iter=300, normalized_stress=False)
 coords_2d = mds_coords = mds.fit_transform(distances)
 
 G = nx.Graph()
@@ -262,10 +300,31 @@ plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # Chinese fonts
 for city in subgraph.keys():
     G.add_node(city)
 
-for i, city1 in enumerate(subgraph.keys()):
+edge_labels = {}
+for i, (city1, v) in enumerate(subgraph.items()):
+    edges2city1 = [row[0] for row in v]
     for j, city2 in enumerate(subgraph.keys()):
-        if i < j:
-            G.add_edge(city1, city2, distance=distances[i, j]) 
+        if city2 in edges2city1:
+            G.add_edge(city1, city2, distance=distances[i, j])
+            edge_labels[(city1, city2)] = round(G.edges[city1, city2]['distance'])
+
+pos = {city: coords_2d[index] for index, city in enumerate(subgraph.keys())}
+
+# Deal with Rotation
+
+
+
+optimal_theta, minimum_error = find_optimal_theta(n_cities, G, pos, paths)
+pos_flipped = {}
+for k, v in pos.items():
+    pos_flipped[k] = np.copy(v)
+    pos_flipped[k][0] *= -1
+optimal_theta_flipped, minimum_error_flipped = find_optimal_theta(n_cities, G, pos_flipped, paths)
+if minimum_error_flipped < minimum_error:
+    optimal_theta = optimal_theta_flipped
+    pos = pos_flipped
+rotation_matrix = np.array([[math.cos(optimal_theta), -math.sin(optimal_theta)],
+                            [math.sin(optimal_theta), math.cos(optimal_theta)]])
 
 # 繪製圖形
 # nx draw options
@@ -277,23 +336,17 @@ options = {
     'font_size': 6
     # 'edge_color': 'k',     # doesnt work idfk why   
 }
-pos = {city: coords_2d[index] for index, city in enumerate(subgraph.keys())}
-nx.draw(G, pos, with_labels=True, **options)
+pos_rotated = pos.copy()
+for k, P in pos.items():
+    pos_rotated[k] = np.dot(P, rotation_matrix)
+    
+nx.draw(G, pos_rotated, with_labels=True, **options)
 
-# 添加邊的標籤（距離）
-edge_labels = {(city1, city2): round(G.edges[city1, city2]['distance'], 2) for city1, city2 in G.edges}
-nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=4)
-
-
-bearings = np.zeros((n_cities, n_cities))
-for i in range(n_cities):
-    for j in range(n_cities):
-        if i != j:
-            bearings[i, j] = calculate_bearing(coords_2d[i], coords_2d[j])
+# 添加邊的標籤（only known 距離）
+nx.draw_networkx_edge_labels(G, pos_rotated, edge_labels=edge_labels, font_size=4)
 
 
 # 顯示圖形
-
 ax = plt.gca() # gca: Get Current Axis
 ax.margins(0.15)  # leave margin to prevent node got cut
 plt.axis("equal") # x and y axis to be same scale

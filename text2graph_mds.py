@@ -198,12 +198,12 @@ def find_optimal_theta(n_cities, G, pos, paths):
     bearings = np.zeros((n_cities, n_cities))
     bearings = {}
     for city1, city2 in list(G.edges):
-        bearings[(city1, city2)] = calculate_bearing(pos[city1], pos[city2]) % math.pi
+        bearings[(city1, city2)] = calculate_bearing(pos[city1], pos[city2]) % (2 * math.pi)
     
     bearings_actual = {}
     for path in paths:
         node1, node2, angle, distance = path
-        bearings_actual[(node1, node2)] = angle % math.pi
+        bearings_actual[(node1, node2)] = angle % (2 * math.pi)
     
     bearings_arr = []
     bearings_actual_arr = []
@@ -211,18 +211,24 @@ def find_optimal_theta(n_cities, G, pos, paths):
     for k, v in bearings.items():
         (node1, node2) = k
         bearings_keys.append(tuple(sorted([node1, node2])))
-        bearings_arr.append(v)
+        if node2 > node1: 
+            bearings_arr.append(v)
+        else:
+            bearings.append((v+math.pi) % (2 * math.pi))
         if (node1, node2) in bearings_actual:
             bearings_actual_arr.append(bearings_actual[(node1, node2)])
         else: #or (node2, node1) in 
-            bearings_actual_arr.append(bearings_actual[(node2, node1)])
+            bearings_actual_arr.append((bearings_actual[(node2, node1)]+math.pi) % (2 * math.pi))
             
     
     bearings_actual_arr = np.array(bearings_actual_arr)
     bearings_arr = np.array(bearings_arr)
+    #print(bearings_actual_arr[:5])
+    #print(bearings_arr[:5])
     # Compute the error function for a given constant theta
     def error(theta):
-        return np.sum(abs(bearings_arr + theta - bearings_actual_arr)**2)
+        diff = abs(bearings_arr + theta - bearings_actual_arr)
+        return np.sum(np.where(diff > math.pi, 2 * math.pi - diff, diff)**2)  # (2 * math.pi - diff if diff > math.pi else diff)
     
     # Use scipy.optimize.minimize_scalar to find the minimum error and corresponding theta
     result = minimize_scalar(error)
@@ -338,7 +344,7 @@ options = {
 }
 pos_rotated = pos.copy()
 for k, P in pos.items():
-    pos_rotated[k] = np.dot(P, rotation_matrix)
+    pos_rotated[k] = np.dot(rotation_matrix, P)
     
 nx.draw(G, pos_rotated, with_labels=True, **options)
 
@@ -352,6 +358,6 @@ ax.margins(0.15)  # leave margin to prevent node got cut
 plt.axis("equal") # x and y axis to be same scale
 #fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
 #plt.show() # no need if plotting in the Plots pane
-plt.savefig('plt/test.png', dpi=2400) # save figure; resolution=1200dpi
+plt.savefig('plt/test.png', dpi=1200) # save figure; resolution=1200dpi
 plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
 # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"

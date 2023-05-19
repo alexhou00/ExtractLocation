@@ -49,6 +49,7 @@ class TtoG: # text to graph
 			nxtpos = [pos[0]+delta[1]*math.cos(delta[0]),pos[1]+delta[1]*math.sin(delta[0])]
 			self.dfs(nxt,nxtpos)
 		return
+    
 
 	def run(self):
 		edges = self.edges
@@ -254,6 +255,6 @@ for n, pos in enumerate(conv.graphs):
     plt.axis("equal") # x and y axis to be same scale
     #fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
     #plt.show() # no need if plotting in the Plots pane
-    plt.savefig(f'plt/{csvfilename}_{n}.png', dpi=2400) # save figure; resolution=1200dpi
+    plt.savefig(f'plt/{csvfilename}_{n}.png', dpi=1200) # save figure; resolution=1200dpi
     plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
     # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"

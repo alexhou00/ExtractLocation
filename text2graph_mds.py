@@ -16,11 +16,13 @@ from sklearn.manifold import MDS
 import numpy as np
 from scipy.optimize import minimize_scalar
 
+import hashlib
+
 from collections import deque
 
 # Todo: 使用 MDS 中的 dissimilarity='euclidean' (再算方位角旋轉整體)
 # → 套用至西域：選擇有長度有方位者，用 DFS 推出兩兩間距離 → 作 MDS →  找最小誤差的角度旋轉/翻轉整體 → 補上其他邊、點 → 微調位置
-# todo: dfs for <3 nodes, edge color, add no dis, add no dir
+# todo: edge color legend, add no dis, add no dir
 
 class TtoG: # text to graph
     edges = []
@@ -34,24 +36,28 @@ class TtoG: # text to graph
         return
 
     # dfs implementation
-    def dfs(self,now):
+    def dfs(self,now,pos):
         if not now in self.done:
-            self.graphs[-1].append(now)
+            self.graphs[-1].append([now,pos[0],pos[1]])
         else:
             return
         self.done.append(now);
         for i in range(len(self.edges)):
             nxt = ""
+            delta = []
             if self.edges[i][1] == now:
                 nxt = self.edges[i][0]
+                delta = [self.edges[i][2],self.edges[i][3]]
             elif self.edges[i][0] == now:
                 nxt = self.edges[i][1]
+                delta = [self.edges[i][2]+math.pi,self.edges[i][3]];
             else:
                 continue
-            self.dfs(nxt)
+            nxtpos = [pos[0]+delta[1]*math.cos(delta[0]),pos[1]+delta[1]*math.sin(delta[0])]
+            self.dfs(nxt,nxtpos)
         return
     
-    # run table to graph function (activate dfs)
+
     def run(self):
         edges = self.edges
         self.graphs = []
@@ -59,11 +65,56 @@ class TtoG: # text to graph
         for i in range(len(edges)):
             if edges[i][0] not in self.done:
                 self.graphs.append([])
-                self.dfs(edges[i][0]) #,[0,0])
-        
-        # return 3d list as [[[name1,x1,y1],[name2,x2,y2],[name3,x3,y3]],
-        #                   [[nname1,xx1,yy1],[nname2,xx2,yy2]]]
+                self.dfs(edges[i][0],[0,0])
         return
+# return 3d list as [[[name1,x1,y1],[name2,x2,y2],[name3,x3,y3]],
+#                   [[nname1,xx1,yy1],[nname2,xx2,yy2]]]
+
+
+class TtoG_pos: # text to graph
+    edges = []
+    done = []
+    graphs = []
+# a 2d list as [[pos1,pos2,dir(radius),len]]
+
+    # initialize edges
+    def __init__(self,inp):
+        self.edges = inp
+        return
+
+    # dfs implementation
+    def dfs(self,now,pos):
+        if not now in self.done:
+            self.graphs[-1].append([now,pos[0],pos[1]])
+        else:
+            return
+        self.done.append(now);
+        for i in range(len(self.edges)):
+            nxt = ""
+            delta = []
+            if self.edges[i][1] == now:
+                nxt = self.edges[i][0]
+                delta = [self.edges[i][2],self.edges[i][3]]
+            elif self.edges[i][0] == now:
+                nxt = self.edges[i][1]
+                delta = [self.edges[i][2]+math.pi,self.edges[i][3]];
+            else:
+                continue
+            nxtpos = [pos[0]+delta[1]*math.cos(delta[0]),pos[1]+delta[1]*math.sin(delta[0])]
+            self.dfs(nxt,nxtpos)
+        return
+
+    def run(self):
+        edges = self.edges
+        self.graphs = []
+        self.done = []
+        for i in range(len(edges)):
+            if edges[i][0] not in self.done:
+                self.graphs.append([])
+                self.dfs(edges[i][0],[0,0])
+        return
+# return 3d list as [[[name1,x1,y1],[name2,x2,y2],[name3,x3,y3]],
+#                   [[nname1,xx1,yy1],[nname2,xx2,yy2]]]
 
 
 def readfile(csvfilename):
@@ -238,6 +289,32 @@ def find_optimal_theta(n_cities, G, pos, paths):
     return optimal_theta, minimum_error
 
 
+def find_edge(data, match):
+    for sublist in data:
+        if sublist[:2] == list(match):
+            return sublist[-1]
+    return None
+
+def hashColor(string_to_hash):
+    # Define the string to hash and the maximum RGB value
+    # string_to_hash = "hello world"
+    max_rgb_value = 255
+    if string_to_hash != None:
+        # Hash the string using SHA-256 and convert the resulting hexadecimal string to an integer
+        hashed_string = int(hashlib.sha256(string_to_hash.encode()).hexdigest(), 16)
+        
+        # Extract the red, green, and blue components from the hashed integer
+        red = hashed_string % (max_rgb_value + 1)
+        green = (hashed_string // (max_rgb_value + 1)) % (max_rgb_value + 1)
+        blue = (hashed_string // ((max_rgb_value + 1) ** 2)) % (max_rgb_value + 1)
+        
+        # Create an RGB tuple using the extracted color components
+        rgb_tuple = (red, green, blue)
+        
+        return rgb_tuple # Output: (190, 160, 205)
+    else:
+        return (0,0,0)
+    
 
 # MAIN CODE STARTS HERE
 
@@ -255,7 +332,16 @@ paths = table2paths(arr)
 # find 連通塊 (subgraph) and get nodes of each 連通塊
 conv = TtoG(paths)  # TtoG object
 conv.run()  # run dfs
-subgraphs_nodes = conv.graphs  # list of all nodes of each subgraph
+conv_graphs = conv.graphs
+
+subgraphs_nodes = []
+for i in conv_graphs:
+    tmp_graph = []
+    for j in i:
+        tmp_graph.append(j[0])
+    subgraphs_nodes.append(tmp_graph)
+        
+# subgraphs_nodes = conv.graphs  # list of all nodes of each subgraph
 
 # create adjecency lists
 subgraphs = []
@@ -282,13 +368,19 @@ for i in range(len(subgraphs_nodes)):
             subgraph_cur[key] = []
     subgraphs.append(subgraph_cur)
 
+# Calculate default length
+avg = [int(i[3].rstrip('里')) for i in arr if i[3].rstrip('里').isnumeric()]
+avg = sum(avg)//len(avg)
+
 
 # Iterate each subgraph to create graphs using MDS and other methods
 for n, subgraph in enumerate(subgraphs):
     subgraph = dict(sorted(subgraph.items(), key=lambda x:x[0])) # subgraph but sorted by dict_key
     
+    print("graph", n)
+    
     # if there are more than three nodes, then apply the MDS method
-    if len(subgraphs) > 3:
+    if len(subgraph) > 3:
         # create empty distance matrix
         n_cities = len(subgraph)
         distances = np.empty((n_cities, n_cities))
@@ -366,7 +458,8 @@ for n, subgraph in enumerate(subgraphs):
         
         # 添加邊的標籤（only known 距離）
         nx.draw_networkx_edge_labels(G, pos_rotated, edge_labels=edge_labels, font_size=4)
-        
+        edge_color = [(find_edge(arr, match), hashColor(find_edge(arr, match))) for match in list(G.edges)]
+        nx.draw_networkx_edges(G, pos=pos_rotated, edge_color=[c[1] for c in edge_color])
         
         # 顯示圖形
         ax = plt.gca() # gca: Get Current Axis
@@ -374,8 +467,84 @@ for n, subgraph in enumerate(subgraphs):
         plt.axis("equal") # x and y axis to be same scale
         #fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
         #plt.show() # no need if plotting in the Plots pane
-        plt.savefig(f'plt/{csvfilename}_{n}.png', dpi=1200) # save figure; resolution=1200dpi
+        plt.savefig(f'plt/{csvfilename}_new_{n}.png', dpi=1200) # save figure; resolution=1200dpi
         plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
         # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"
+    
     else:
-        pass
+        
+        # Create a graph
+        G = nx.Graph()
+        
+        plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # Chinese fonts 
+        
+        
+        # Define the positions of the nodes
+        
+        dict_pos = {}
+        
+        for inner_list in conv_graphs[n]:
+            key = inner_list[0]
+            value = (round(inner_list[1], 1), round(inner_list[2], 1))
+            dict_pos[key] = value
+        
+        # print(result_dict)
+        
+        # Add some nodes
+        G.add_nodes_from(list(dict_pos.keys()))
+        
+        # Add edges
+        edges = []
+        for row in arr:
+            if row[3].rstrip('里').isnumeric():
+                edges.append((row[0], row[1], {'weight': row[3].rstrip('里')}))
+            else:
+                edges.append((row[0], row[1], {'weight': str(avg)}))
+        cur_places = [i[0] for i in conv_graphs[n]] # list of places names in the current graph
+
+        # remove edges that is not in the current graph
+        toRemove = []
+        for i in edges:
+            if not (i[0] in cur_places and i[1] in cur_places):
+                toRemove.append(i)
+        for i in toRemove: edges.remove(i)
+
+        G.add_edges_from(edges)
+        # G.add_edges_from([tuple(row[:2]) for row in unknownDis])
+        
+
+        # nx draw options
+        options = {
+            'node_color': 'white', # node color
+            'node_size': 350, # node size
+            'linewidths': 1, # node border width
+            'edgecolors': 'black', # node border color
+            'font_size': 6
+            # 'edge_color': 'k',     # doesnt work idfk why   
+        }
+        
+        # Draw the graph with custom node positions
+        # print(dict_pos)
+
+        # Fixed the fixed nodes and spring_layout the free ones (the ones without 里程)
+        
+        dict_pos = nx.spring_layout(G, pos=dict_pos, fixed=dict_pos.keys(), k=800, iterations=5)
+
+        nx.draw(G, pos=dict_pos, with_labels=True, **options)
+        # draw edges weights (length)
+        edge_labels = {(u, v): d.get('weight') for u, v, d in G.edges(data=True) if int(d.get('weight')) != avg}
+        nx.draw_networkx_edge_labels(G, pos=dict_pos, edge_labels=edge_labels, font_size=4)
+        edge_color = [(find_edge(arr, match), hashColor(find_edge(arr, match))) for match in list(G.edges)]
+        nx.draw_networkx_edges(G, pos=dict_pos, edge_color=[c[1] for c in edge_color])
+        # print(edge_color)
+        
+
+        # Show the graph
+        ax = plt.gca() # gca: Get Current Axis
+        ax.margins(0.15)  # leave margin to prevent node got cut
+        plt.axis("equal") # x and y axis to be same scale
+        #fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
+        #plt.show() # no need if plotting in the Plots pane
+        plt.savefig(f'plt/{csvfilename}_new_{n}.png', dpi=1200) # save figure; resolution=1200dpi
+        plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
+

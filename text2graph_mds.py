@@ -20,6 +20,7 @@ from collections import deque
 
 # Todo: 使用 MDS 中的 dissimilarity='euclidean' (再算方位角旋轉整體)
 # → 套用至西域：選擇有長度有方位者，用 DFS 推出兩兩間距離 → 作 MDS →  找最小誤差的角度旋轉/翻轉整體 → 補上其他邊、點 → 微調位置
+# todo: dfs for <3 nodes, edge color, add no dis, add no dir
 
 class TtoG: # text to graph
     edges = []
@@ -286,91 +287,95 @@ for i in range(len(subgraphs_nodes)):
 for n, subgraph in enumerate(subgraphs):
     subgraph = dict(sorted(subgraph.items(), key=lambda x:x[0])) # subgraph but sorted by dict_key
     
-    # create empty distance matrix
-    n_cities = len(subgraph)
-    distances = np.empty((n_cities, n_cities))
-    
-    # use BFS find the distance matrix
-    for i, start_node in enumerate(subgraph):  # iterate each node (different start node of BFS)
-        path_weights = bfs_findPath(subgraph, start_node)
+    # if there are more than three nodes, then apply the MDS method
+    if len(subgraphs) > 3:
+        # create empty distance matrix
+        n_cities = len(subgraph)
+        distances = np.empty((n_cities, n_cities))
         
-        # calculate and convert the sequence of the recorded path weights: (dir, dis) to euclidean distance
-        path_len = pathWeights2euDis(path_weights) 
+        # use BFS find the distance matrix
+        for i, start_node in enumerate(subgraph):  # iterate each node (different start node of BFS)
+            path_weights = bfs_findPath(subgraph, start_node)
+            
+            # calculate and convert the sequence of the recorded path weights: (dir, dis) to euclidean distance
+            path_len = pathWeights2euDis(path_weights) 
+            
+            path_len = sorted(path_len.items(), key=lambda x:x[0])  # sort to fit in the matrix (the indeces accordingly)
         
-        path_len = sorted(path_len.items(), key=lambda x:x[0])  # sort to fit in the matrix (the indeces accordingly)
-    
-        distances[i] = np.array([p[1] for p in path_len])
-    
-    # adopt MDS to calculate the nodes position by the distance matrix
-    mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42, 
-              n_init=400, max_iter=300, normalized_stress=False)
-    coords_2d = mds.fit_transform(distances)
-    
-    # create empty graph
-    G = nx.Graph()
-    
-    plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # Chinese fonts
-    
-    # Add Nodes of the current subgraph
-    for city in subgraph.keys():
-        G.add_node(city)
-    
-    # create existent edges in current subgraph
-    edge_labels = {}
-    for i, (city1, v) in enumerate(subgraph.items()):
-        edges2city1 = [row[0] for row in v]
-        for j, city2 in enumerate(subgraph.keys()):
-            if city2 in edges2city1:
-                G.add_edge(city1, city2, distance=distances[i, j])
-                edge_labels[(city1, city2)] = round(G.edges[city1, city2]['distance'])
-    
-    # dict of arrays of node's coords
-    pos = {city: coords_2d[index] for index, city in enumerate(subgraph.keys())}
-    
-    # Deal with Rotation
-    optimal_theta, minimum_error = find_optimal_theta(n_cities, G, pos, paths) # find ideal rotation angle
-    # flip graph (might need to flip)
-    pos_flipped = {}
-    for k, v in pos.items():
-        pos_flipped[k] = np.copy(v)
-        pos_flipped[k][0] *= -1
-    optimal_theta_flipped, minimum_error_flipped = \
-        find_optimal_theta(n_cities, G, pos_flipped, paths) # find ideal rotation angle with flipped graph
-    if minimum_error_flipped < minimum_error:
-        optimal_theta = optimal_theta_flipped
-        pos = pos_flipped
-    # rotates the coords by theta counterclockwise
-    rotation_matrix = np.array([[math.cos(optimal_theta), -math.sin(optimal_theta)],
-                                [math.sin(optimal_theta), math.cos(optimal_theta)]])
-    
-    # Rotates the graph with the optimal angle (multiplies the rotation matrix)
-    pos_rotated = pos.copy()
-    for k, P in pos.items():
-        pos_rotated[k] = np.matmul(P, rotation_matrix)  # R.T times P (clockwise) 
-    
-    # 繪製圖形
-    # nx draw options
-    options = {
-        'node_color': 'white', # node color
-        'node_size': 350, # node size
-        'linewidths': 1, # node border width
-        'edgecolors': 'black', # node border color
-        'font_size': 6
-    }
-    
-    # draw graph
-    nx.draw(G, pos_rotated, with_labels=True, **options)
-    
-    # 添加邊的標籤（only known 距離）
-    nx.draw_networkx_edge_labels(G, pos_rotated, edge_labels=edge_labels, font_size=4)
-    
-    
-    # 顯示圖形
-    ax = plt.gca() # gca: Get Current Axis
-    ax.margins(0.15)  # leave margin to prevent node got cut
-    plt.axis("equal") # x and y axis to be same scale
-    #fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
-    #plt.show() # no need if plotting in the Plots pane
-    plt.savefig(f'plt/{csvfilename}_{n}.png', dpi=1200) # save figure; resolution=1200dpi
-    plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
-    # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"
+            distances[i] = np.array([p[1] for p in path_len])
+        
+        # adopt MDS to calculate the nodes position by the distance matrix
+        mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42, 
+                  n_init=400, max_iter=300, normalized_stress=False)
+        coords_2d = mds.fit_transform(distances)
+        
+        # create empty graph
+        G = nx.Graph()
+        
+        plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # Chinese fonts
+        
+        # Add Nodes of the current subgraph
+        for city in subgraph.keys():
+            G.add_node(city)
+        
+        # create existent edges in current subgraph
+        edge_labels = {}
+        for i, (city1, v) in enumerate(subgraph.items()):
+            edges2city1 = [row[0] for row in v]
+            for j, city2 in enumerate(subgraph.keys()):
+                if city2 in edges2city1:
+                    G.add_edge(city1, city2, distance=distances[i, j])
+                    edge_labels[(city1, city2)] = round(G.edges[city1, city2]['distance'])
+        
+        # dict of arrays of node's coords
+        pos = {city: coords_2d[index] for index, city in enumerate(subgraph.keys())}
+        
+        # Deal with Rotation
+        optimal_theta, minimum_error = find_optimal_theta(n_cities, G, pos, paths) # find ideal rotation angle
+        # flip graph (might need to flip)
+        pos_flipped = {}
+        for k, v in pos.items():
+            pos_flipped[k] = np.copy(v)
+            pos_flipped[k][0] *= -1
+        optimal_theta_flipped, minimum_error_flipped = \
+            find_optimal_theta(n_cities, G, pos_flipped, paths) # find ideal rotation angle with flipped graph
+        if minimum_error_flipped < minimum_error:
+            optimal_theta = optimal_theta_flipped
+            pos = pos_flipped
+        # rotates the coords by theta counterclockwise
+        rotation_matrix = np.array([[math.cos(optimal_theta), -math.sin(optimal_theta)],
+                                    [math.sin(optimal_theta), math.cos(optimal_theta)]])
+        
+        # Rotates the graph with the optimal angle (multiplies the rotation matrix)
+        pos_rotated = pos.copy()
+        for k, P in pos.items():
+            pos_rotated[k] = np.matmul(P, rotation_matrix)  # R.T times P (clockwise) 
+        
+        # 繪製圖形
+        # nx draw options
+        options = {
+            'node_color': 'white', # node color
+            'node_size': 350, # node size
+            'linewidths': 1, # node border width
+            'edgecolors': 'black', # node border color
+            'font_size': 6
+        }
+        
+        # draw graph
+        nx.draw(G, pos_rotated, with_labels=True, **options)
+        
+        # 添加邊的標籤（only known 距離）
+        nx.draw_networkx_edge_labels(G, pos_rotated, edge_labels=edge_labels, font_size=4)
+        
+        
+        # 顯示圖形
+        ax = plt.gca() # gca: Get Current Axis
+        ax.margins(0.15)  # leave margin to prevent node got cut
+        plt.axis("equal") # x and y axis to be same scale
+        #fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
+        #plt.show() # no need if plotting in the Plots pane
+        plt.savefig(f'plt/{csvfilename}_{n}.png', dpi=1200) # save figure; resolution=1200dpi
+        plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
+        # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"
+    else:
+        pass

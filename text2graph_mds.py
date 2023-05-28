@@ -3,6 +3,10 @@
 Created on Thu May 18 00:20:09 2023
 
 @author: alexh
+
+Create graph (from csv) using the MDS method
+input: csv files
+output: images
 """
 
 import matplotlib.pyplot as plt
@@ -155,9 +159,7 @@ def readfile(csvfilename):
     return arr
 
 def table2paths(arr):
-    # Calculate default length
-    avg = [int(i[3].rstrip('里')) for i in arr if i[3].rstrip('里').isnumeric()]
-    avg = sum(avg)//len(avg)
+    global avg
     
     # Process every row (table to list (with direction))
     paths = []
@@ -326,6 +328,10 @@ csvfilename = filenames[bookNum]
 # read every row of table to list
 arr = readfile(csvfilename)
 
+# Calculate default length
+avg = [int(i[3].rstrip('里')) for i in arr if i[3].rstrip('里').isnumeric()]
+avg = sum(avg)//len(avg)
+
 # convert raw list data to graph edges
 paths = table2paths(arr)
 
@@ -367,10 +373,6 @@ for i in range(len(subgraphs_nodes)):
         if key not in subgraph_cur:  # just in case there are empty ones
             subgraph_cur[key] = []
     subgraphs.append(subgraph_cur)
-
-# Calculate default length
-avg = [int(i[3].rstrip('里')) for i in arr if i[3].rstrip('里').isnumeric()]
-avg = sum(avg)//len(avg)
 
 
 # Iterate each subgraph to create graphs using MDS and other methods

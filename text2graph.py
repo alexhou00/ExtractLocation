@@ -3,6 +3,8 @@
 Created on Fri Apr 28 11:10:54 2023
 
 @author: alexh
+
+Create graph (from csv) using the original PCC method (by DFS)
 """
 
 import matplotlib.pyplot as plt

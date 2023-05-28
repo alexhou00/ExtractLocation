@@ -3,6 +3,8 @@
 Created on Sun Apr  9 22:40:57 2023
 
 @author: alexh
+
+ChatGPT Table format to CSV table
 """
 
 import csv

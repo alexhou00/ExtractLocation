@@ -3,6 +3,8 @@
 Created on Sun Apr  9 22:01:42 2023
 
 @author: alexh
+
+Read original 文本, send it to GPT-3.5 API, and write to csv
 """
 # requires python 3.8 or above
 

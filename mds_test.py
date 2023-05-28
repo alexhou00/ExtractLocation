@@ -3,6 +3,8 @@
 Created on Sun May 14 15:25:24 2023
 
 @author: alexh
+
+For testing if the MDS methods works
 """
 
 import networkx as nx

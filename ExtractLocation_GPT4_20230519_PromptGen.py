@@ -3,6 +3,10 @@
 Created on Fri May 19 23:01:36 2023
 
 @author: alexh
+
+Generates Prompt for GPT-4 model and write every paragraph to text.txt
+input: 文本/{book}.xml
+output: ./text.txt
 """
 
 # requires python 3.8 or above
@@ -121,20 +125,6 @@ def chatgpt_to_csv(table, num):
                 row = handle_numerals(row)
                 writer.writerow(replace_unknown(row))
 
-def getResponseAndWriteCSV(msgs):
-    response = openai.ChatCompletion.create(model="gpt-3.5-turbo",
-                                            max_tokens=2048,
-                                            temperature=0.1,
-                                            messages=msgs)
-    
-    print(table := response.choices[0].message.content)  # assign the table to variable and print it
-    print(f"Usage: {response.usage['total_tokens']} tokens")  # print token usage
-    
-    try:
-        chatgpt_to_csv(table, num)  # write the output to csv table, num is the # of loop
-    except IndexError as e:  # perhaps that paragraph does not contain any location info
-        print(e)  # so the output (completion) won't be in the chatgpt-style table format
-        # and that's why there is the error of list index out of range
 
 # Config the logging module
 for name, logger in logging.root.manager.loggerDict.items():
@@ -173,4 +163,9 @@ prompt = f'''
 '''
 text = ''.join(texts)
 print(prompt, end='')
-print(custom_split(text)[0])
+
+
+with open('text.txt', 'w', encoding='utf-8') as f:
+    for line in custom_split(text):
+        f.write(line)
+        f.write('\n\n')

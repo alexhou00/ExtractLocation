@@ -51,6 +51,8 @@ del sources[0]
 sources = list(set(sources))
 
 for i, text in enumerate(sources):
+    if text == '--':
+        continue
     # Define the text and its position
     text_position = (50, 60+i*50)
 

@@ -26,7 +26,7 @@ from collections import deque
 
 # Todo: 使用 MDS 中的 dissimilarity='euclidean' (再算方位角旋轉整體)
 # → 套用至西域：選擇有長度有方位者，用 DFS 推出兩兩間距離 → 作 MDS →  找最小誤差的角度旋轉/翻轉整體 → 補上其他邊、點 → 微調位置
-# todo: edge color legend, add no dis, add no dir
+# todo: edge color legend (Done), add no dis, add no dir
 
 class TtoG: # text to graph
     edges = []
@@ -301,7 +301,7 @@ def hashColor(string_to_hash):
     # Define the string to hash and the maximum RGB value
     # string_to_hash = "hello world"
     max_rgb_value = 255
-    if string_to_hash != None:
+    if string_to_hash != None and string_to_hash != '--':
         # Hash the string using SHA-256 and convert the resulting hexadecimal string to an integer
         hashed_string = int(hashlib.sha256(string_to_hash.encode()).hexdigest(), 16)
         
@@ -311,9 +311,9 @@ def hashColor(string_to_hash):
         blue = (hashed_string // ((max_rgb_value + 1) ** 2)) % (max_rgb_value + 1)
         
         # Create an RGB tuple using the extracted color components
-        rgb_tuple = (red, green, blue)
+        rgb_tuple = (red/max_rgb_value, green/max_rgb_value, blue/max_rgb_value)
         
-        return rgb_tuple # Output: (190, 160, 205)
+        return rgb_tuple # Output: (190/255, 160/255, 205/255)
     else:
         return (0,0,0)
     

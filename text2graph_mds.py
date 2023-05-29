@@ -447,6 +447,7 @@ for n, subgraph in enumerate(subgraphs):
             pos_rotated[k] = np.matmul(P, rotation_matrix)  # R.T times P (clockwise) 
         
         # 繪製圖形
+        # drawGraph()
         # nx draw options
         options = {
             'node_color': 'white', # node color

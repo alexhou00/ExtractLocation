@@ -322,7 +322,7 @@ def hashColor(string_to_hash):
 
 # bookNum 史記 0; 漢書 1; 後漢書 2
 bookNum = 0
-filenames = ['GPT-4_RGH_numerals', 'outputBOH0424', 'outputBLH0424']
+filenames = ['GPT-4_RGH_numerals', 'outputBOH0424', 'outputBLH0424']  # outputRGH0424_2_manual
 csvfilename = filenames[bookNum]
 
 # read every row of table to list

@@ -94,7 +94,7 @@ def hashColor(string_to_hash):
 
 # MAIN CODE STARTS HERE
 bookNum = 0
-filenames = ['outputRGH0424_2_manual', 'outputBOH0424', 'outputBLH0424']
+filenames = ['GPT-4_RGH_numerals', 'outputBOH0424', 'outputBLH0424'] # outputRGH0424_2_manual
 csvfilename = filenames[bookNum]
 arr = []
 # ref = []
@@ -257,6 +257,6 @@ for n, pos in enumerate(conv.graphs):
     plt.axis("equal") # x and y axis to be same scale
     #fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
     #plt.show() # no need if plotting in the Plots pane
-    plt.savefig(f'plt/{csvfilename}_{n}.png', dpi=1200) # save figure; resolution=1200dpi
+    plt.savefig(f'plt/{csvfilename}_gpt4_dfs_{n}.png', dpi=1200) # save figure; resolution=1200dpi
     plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
     # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"

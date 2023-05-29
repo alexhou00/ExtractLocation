@@ -322,7 +322,7 @@ def hashColor(string_to_hash):
 
 # bookNum 史記 0; 漢書 1; 後漢書 2
 bookNum = 0
-filenames = ['outputRGH0424_2_manual', 'outputBOH0424', 'outputBLH0424']
+filenames = ['GPT-4_RGH_numerals', 'outputBOH0424', 'outputBLH0424']
 csvfilename = filenames[bookNum]
 
 # read every row of table to list
@@ -419,7 +419,8 @@ for n, subgraph in enumerate(subgraphs):
             for j, city2 in enumerate(subgraph.keys()):
                 if city2 in edges2city1:
                     G.add_edge(city1, city2, distance=distances[i, j])
-                    edge_labels[(city1, city2)] = round(G.edges[city1, city2]['distance'])
+                    if distances[i, j] != avg:
+                        edge_labels[(city1, city2)] = round(G.edges[city1, city2]['distance'])
         
         # dict of arrays of node's coords
         pos = {city: coords_2d[index] for index, city in enumerate(subgraph.keys())}
@@ -469,7 +470,7 @@ for n, subgraph in enumerate(subgraphs):
         plt.axis("equal") # x and y axis to be same scale
         #fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
         #plt.show() # no need if plotting in the Plots pane
-        plt.savefig(f'plt/{csvfilename}_new_{n}.png', dpi=1200) # save figure; resolution=1200dpi
+        plt.savefig(f'plt/{csvfilename}_gpt4_{n}.png', dpi=1200) # save figure; resolution=1200dpi
         plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
         # font-path -> "C:\Users\<username>\miniconda3\envs\spyder-env\Lib\site-packages\matplotlib\mpl-data"
     
@@ -531,10 +532,10 @@ for n, subgraph in enumerate(subgraphs):
         # Fixed the fixed nodes and spring_layout the free ones (the ones without 里程)
         
         dict_pos = nx.spring_layout(G, pos=dict_pos, fixed=dict_pos.keys(), k=800, iterations=5)
-
+        print(list(G.edges))
         nx.draw(G, pos=dict_pos, with_labels=True, **options)
         # draw edges weights (length)
-        edge_labels = {(u, v): d.get('weight') for u, v, d in G.edges(data=True) if int(d.get('weight')) != avg}
+        edge_labels = {(u, v): d.get('weight') for u, v, d in G.edges(data=True) if abs(int(d.get('weight'))-avg) > 1}
         nx.draw_networkx_edge_labels(G, pos=dict_pos, edge_labels=edge_labels, font_size=4)
         edge_color = [(find_edge(arr, match), hashColor(find_edge(arr, match))) for match in list(G.edges)]
         nx.draw_networkx_edges(G, pos=dict_pos, edge_color=[c[1] for c in edge_color])
@@ -547,6 +548,5 @@ for n, subgraph in enumerate(subgraphs):
         plt.axis("equal") # x and y axis to be same scale
         #fig = plt.gcf()  # so that I can both show and save fig (current fig will reset)
         #plt.show() # no need if plotting in the Plots pane
-        plt.savefig(f'plt/{csvfilename}_new_{n}.png', dpi=1200) # save figure; resolution=1200dpi
+        plt.savefig(f'plt/{csvfilename}_gpt4_{n}.png', dpi=1200) # save figure; resolution=1200dpi
         plt.clf()  # clear figure, to tell plt that I'm done with it (use when saving figs)
-

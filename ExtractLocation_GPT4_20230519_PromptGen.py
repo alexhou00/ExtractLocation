@@ -140,7 +140,7 @@ logging.basicConfig(level=logging.INFO)
 books = ['史記v123', '漢書v96', '後漢書v88']
 
 # bookNum 史記 0; 漢書 1; 後漢書 2
-bookNum = 0
+bookNum = 2
 book = books[bookNum]
 columns = ['國名', '相對地點', '方位', '里程', '來源']
 columns = ['地點1', '地點2', '方位', '里程', '書籍出處', '原文文句']
@@ -165,7 +165,7 @@ text = ''.join(texts)
 print(prompt, end='')
 
 
-with open('text.txt', 'w', encoding='utf-8') as f:
+with open('文本/text2.txt', 'w', encoding='utf-8') as f:
     for line in custom_split(text):
         f.write(line)
         f.write('\n\n')

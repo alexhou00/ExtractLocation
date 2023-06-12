@@ -27,7 +27,7 @@ def is_empty(string):  # Check...
     
     
 def handle_numerals(row):  # Handle the 里程 column, Chinese to Integers
-    if row[3].endswith('里') and '數' not in row[3]:
+    if row[3].endswith('里') and '數' not in row[3] and '餘' not in row[3]:
         if not any(char.isdigit() for char in row[3]): # if has no numerals (not even one 阿拉伯數字)
             row[3] = str(c2i(row[3][:-1])) + '里'  # c2i -> chinese numerals to integer
     return row
@@ -45,7 +45,7 @@ def replace_unknown(lst):
     if len(lst[4]) > 20: lst[4] == "--"  # if 來源 too long (which means it is giving whole source sentence)
     return lst
 
-with open('GPT-4_RGH.csv', 'r', newline='', encoding='utf-8') as csvfile:
+with open('GPT-4_BLH.csv', 'r', newline='', encoding='utf-8') as csvfile:
     reader = csv.reader(csvfile)
     data = []
     for row in reader:
@@ -57,6 +57,6 @@ with open('GPT-4_RGH.csv', 'r', newline='', encoding='utf-8') as csvfile:
             data.append(replace_unknown(row))
             
             
-with open('GPT-4_RGH_numerals.csv', 'w', newline='', encoding='utf-8') as csvfile:
+with open('GPT-4_BLH_numerals.csv', 'w', newline='', encoding='utf-8') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerows(data)

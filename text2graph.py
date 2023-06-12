@@ -93,8 +93,8 @@ def hashColor(string_to_hash):
         return (0,0,0)
 
 # MAIN CODE STARTS HERE
-bookNum = 0
-filenames = ['GPT-4_RGH_numerals', 'outputBOH0424', 'outputBLH0424'] # outputRGH0424_2_manual
+bookNum = 1
+filenames = ['GPT-4_RGH_numerals', 'GPT-4_BOH_numerals5', 'outputBLH0424'] # outputRGH0424_2_manual
 csvfilename = filenames[bookNum]
 arr = []
 # ref = []

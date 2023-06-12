@@ -321,8 +321,8 @@ def hashColor(string_to_hash):
 # MAIN CODE STARTS HERE
 
 # bookNum 史記 0; 漢書 1; 後漢書 2
-bookNum = 0
-filenames = ['GPT-4_RGH_numerals', 'outputBOH0424', 'outputBLH0424']  # outputRGH0424_2_manual
+bookNum = 1
+filenames = ['GPT-4_RGH_numerals', 'GPT-4_BOH_numerals5', 'GPT-4_BLH_numerals']  # outputRGH0424_2_manual
 csvfilename = filenames[bookNum]
 
 # read every row of table to list
@@ -399,7 +399,7 @@ for n, subgraph in enumerate(subgraphs):
             distances[i] = np.array([p[1] for p in path_len])
         
         # adopt MDS to calculate the nodes position by the distance matrix
-        mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42, 
+        mds = MDS(n_components=2, dissimilarity='euclidean', random_state=43, 
                   n_init=400, max_iter=300, normalized_stress=False)
         coords_2d = mds.fit_transform(distances)
         
